@@ -19,3 +19,6 @@ runs/
 .env
 *.key
 keys/
+
+# The website's TypeScript build scripts are source
+!site/build/
