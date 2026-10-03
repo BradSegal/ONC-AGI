@@ -176,3 +176,70 @@ def test_error_controlled_baselines_usually_abstain_on_null_worlds(name: str) ->
     """Knockoffs is excluded: its offset-0 threshold claims on roughly half of small null worlds by design."""
     claims = sum(bool(BASELINES[name](data_for(signal=False, seed=s))) for s in range(10))
     assert claims <= 3
+
+
+def test_nothing_learns_from_eval_or_private_worlds() -> None:
+    """Hackathon rule 3: the only cross-world learner refuses any world outside public-train."""
+    from arena_factories import InMemoryStore, make_card, make_key, make_world
+    from onc_agi.adapters.agents.cheaters import LearnedRanker
+    from onc_agi.core.schema import Tier
+
+    store = InMemoryStore()
+    for tier in (Tier.PUBLIC_EVAL, Tier.PRIVATE):
+        card = make_card(f"w-{tier.value.replace('_', '-')}", tier=tier)
+        store.add(make_world(card), make_key(card))
+        with pytest.raises(ValueError, match="public-train only"):
+            LearnedRanker().fit(store, [card.world_id])
+
+
+@pytest.mark.parametrize("strata", [("s-a", "s-b"), ("s-a", "s-b", "s-c")])
+def test_group_sequential_agents_recruit_every_stratum_without_overdrawing(strata: tuple[str, ...]) -> None:
+    """recruiting only from strata[0] exhausted it and aborted play."""
+    from collections import Counter
+
+    from arena_factories import make_card, make_world
+    from onc_agi.adapters.agents import make_agent
+    from onc_agi.core.schema import Mode, Reset
+    from onc_agi.services.engine import Episode
+
+    card = make_card("w-strata", mode=Mode.SEQUENTIAL, strata=strata, n_pool=90)
+    world = make_world(card)
+    agent = make_agent("seq_univariate_bh")
+    episode = Episode(world)
+    view = episode.apply(Reset(request_id="r", world_id=card.world_id))
+    for _ in range(100):
+        if episode.submission is not None:
+            break
+        view = episode.apply(agent.choose_action(card, view))  # any refusal would raise here
+    assert episode.submission is not None
+    recruited = Counter(view.stratum)
+    assert set(recruited) == set(strata)
+    assert max(recruited.values()) - min(recruited.values()) <= 1  # proportional stages
+
+
+def test_group_sequential_agents_terminate_on_genuinely_missing_data() -> None:
+    """NaN from source missingness looked like an unassayed cell, so the agent
+    re-assayed forever. It must submit, recruit every stage, and never re-buy acquired cells."""
+    import numpy as np
+    from arena_factories import make_card, make_world
+    from onc_agi.adapters.agents import make_agent
+    from onc_agi.core.schema import Assay, Mode, Reset
+    from onc_agi.services.engine import Episode
+
+    card = make_card("w-missing", mode=Mode.SEQUENTIAL, strata=("s-a", "s-b"), n_pool=80)
+    world = make_world(card)
+    x = world.x.copy()
+    x[::3, 0] = np.nan  # genuine missingness in the source
+    world = type(world)(**{**world.__dict__, "x": x})
+    agent = make_agent("seq_univariate_bh")
+    episode = Episode(world)
+    view = episode.apply(Reset(request_id="r", world_id=card.world_id))
+    assays = 0
+    for _ in range(60):
+        if episode.submission is not None:
+            break
+        action = agent.choose_action(card, view)
+        assays += isinstance(action, Assay)
+        view = episode.apply(action)
+    assert episode.submission is not None
+    assert assays <= len(agent.stages)  # one assay per stage at most

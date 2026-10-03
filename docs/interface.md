@@ -126,7 +126,7 @@ Expected failures return an `ArenaErrorPayload`, mapped to an HTTP status:
 
 ## HTTP endpoints
 
-All endpoints live under `/v1`. Opening a scorecard needs an `X-Arena-Key` header. When the server runs with `--api-keys`, only issued keys are accepted.
+All endpoints live under `/v1`. Every scorecard endpoint needs an `X-Arena-Key` header, and only the key that opened a scorecard can act on it, read it or close it. Any other key gets the same `unknown scorecard` error as an id that does not exist. When the server runs with `--api-keys`, only issued keys are accepted.
 
 | Method and path | Body | Returns |
 |---|---|---|

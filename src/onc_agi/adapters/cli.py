@@ -19,6 +19,7 @@ from onc_agi.services.replay import replay
 SMOKE_AGENTS = (
     "oracle",
     "univariate_bh",
+    "seq_univariate_bh",
     "stability",
     "random",
     "giant_list",
@@ -39,7 +40,7 @@ def _fmt(value: float | None, spec: str) -> str:
 
 def _row(card: Scorecard) -> str:
     return (
-        f"{card.agent:16s} DS {_fmt(card.discovery_score, '6.3f')}  "
+        f"{card.agent:18s} DS {_fmt(card.discovery_score, '6.3f')}  "
         f"[{_fmt(card.interval.low, '+.2f')},{_fmt(card.interval.high, '+.2f')}]  "
         f"Find {_fmt(card.find, '5.2f')}  Restraint {_fmt(card.restraint, '+5.2f')}  "
         f"Strict {_fmt(card.strict_discovery_score, '5.2f')}  Leak {card.leak_rate:4.2f}"

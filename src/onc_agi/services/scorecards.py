@@ -9,7 +9,9 @@ for public train. Unsubmitted worlds score as empty submissions.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -59,6 +61,11 @@ class _Open:
     tags: tuple[str, ...]
     episodes: dict[str, Episode] = field(default_factory=dict)
     closed: Scorecard | None = None
+    owner: str = ""  # sha256 of the opening key; only that key may act, read or close
+
+
+def _owner(api_key: str) -> str:
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 class ScorecardService:
@@ -79,6 +86,9 @@ class ScorecardService:
         self.pool_commitments = pool_commitments or {}
         self.allowed_keys = allowed_keys  # issued keys (ARC-style); None accepts any key (development only)
         self._open: dict[str, _Open] = {}
+        # one server process owns a ledger (arena serve runs a single worker); within it, openings
+        # are serialised so concurrent requests cannot both pass a cap or draw the same world
+        self._opening = threading.Lock()
 
     def open(
         self, api_key: str, *, agent: str, track: str, tier: Tier, n_worlds: int, tags: tuple[str, ...] = ()
@@ -89,6 +99,14 @@ class ScorecardService:
             )
         if track not in ("standard", "open"):
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "track must be 'standard' or 'open'")
+        with self._opening:  # check caps, draw, mark used and record as one critical section
+            return self._open_locked(
+                api_key, agent=agent, track=track, tier=tier, n_worlds=n_worlds, tags=tags
+            )
+
+    def _open_locked(
+        self, api_key: str, *, agent: str, track: str, tier: Tier, n_worlds: int, tags: tuple[str, ...]
+    ) -> tuple[str, tuple[WorldCard, ...]]:
         today = self.clock().date().isoformat()
         history = self.ledger.openings(api_key, tier)
         if tier is Tier.PUBLIC_EVAL and sum(1 for d in history if d == today) >= PUBLIC_EVAL_DAILY_CAP:
@@ -114,7 +132,9 @@ class ScorecardService:
             self.ledger.mark_used(tier, list(chosen))
         self.ledger.record_opening(api_key, tier, today)
         scorecard_id = f"sc-{secrets.token_hex(8)}"
-        self._open[scorecard_id] = _Open(scorecard_id, agent, track, tier, chosen, tuple(tags))
+        self._open[scorecard_id] = _Open(
+            scorecard_id, agent, track, tier, chosen, tuple(tags), owner=_owner(api_key)
+        )
         return scorecard_id, tuple(self.store.card(w) for w in chosen)
 
     def _stratified_draw(self, available: tuple[str, ...], n_worlds: int) -> tuple[str, ...]:
@@ -147,13 +167,19 @@ class ScorecardService:
             raise ArenaError(ErrorCode.CAP_EXCEEDED, "not enough unused signal worlds for the requested draw")
         return tuple(sorted(chosen))
 
-    def _get(self, scorecard_id: str) -> _Open:
-        if scorecard_id not in self._open:
-            raise ArenaError(ErrorCode.INVALID_PAYLOAD, f"unknown scorecard {scorecard_id!r}")
-        return self._open[scorecard_id]
+    def _get(self, scorecard_id: str, api_key: str | None = None) -> _Open:
+        """The scorecard, if it exists and (when a key is given) belongs to that key.
 
-    def episode(self, scorecard_id: str, world_id: str) -> Episode:
-        sc = self._get(scorecard_id)
+        A scorecard opened by another key is reported exactly like an unknown one, so a
+        guessed or leaked id reveals nothing and cannot be acted on, read or closed.
+        """
+        sc = self._open.get(scorecard_id)
+        if sc is None or (api_key is not None and sc.owner != _owner(api_key)):
+            raise ArenaError(ErrorCode.INVALID_PAYLOAD, f"unknown scorecard {scorecard_id!r}")
+        return sc
+
+    def episode(self, scorecard_id: str, world_id: str, *, api_key: str | None = None) -> Episode:
+        sc = self._get(scorecard_id, api_key)
         if sc.closed is not None:
             raise ArenaError(ErrorCode.SCORECARD_CLOSED, "scorecard is closed")
         if world_id not in sc.world_ids:
@@ -162,8 +188,10 @@ class ScorecardService:
             sc.episodes[world_id] = Episode(self.store.world(world_id))
         return sc.episodes[world_id]
 
-    def act(self, scorecard_id: str, world_id: str, action: Action) -> EpisodeView:
-        view = self.episode(scorecard_id, world_id).apply(action)
+    def act(
+        self, scorecard_id: str, world_id: str, action: Action, *, api_key: str | None = None
+    ) -> EpisodeView:
+        view = self.episode(scorecard_id, world_id, api_key=api_key).apply(action)
         if self.traces is not None:
             self.traces(scorecard_id).record(
                 TraceEvent(
@@ -180,8 +208,8 @@ class ScorecardService:
             )
         return view
 
-    def close(self, scorecard_id: str) -> Scorecard:
-        sc = self._get(scorecard_id)
+    def close(self, scorecard_id: str, *, api_key: str | None = None) -> Scorecard:
+        sc = self._get(scorecard_id, api_key)
         if sc.closed is not None:
             raise ArenaError(ErrorCode.SCORECARD_CLOSED, "scorecard is already closed")
         scores: list[WorldScore] = []

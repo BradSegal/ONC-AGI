@@ -95,17 +95,17 @@ def create_app(service: ScorecardService) -> FastAPI:
         return OpenResponse(scorecard_id=sid, cards=cards)
 
     @app.post("/v1/scorecards/{sid}/worlds/{wid}/actions")
-    def act(sid: str, wid: str, body: ActionEnvelope) -> Observation:
-        view = service.act(sid, wid, body.action)
-        return view.to_observation(service.episode(sid, wid).world.patient_ids)
+    def act(sid: str, wid: str, body: ActionEnvelope, x_arena_key: str = Header(min_length=8)) -> Observation:
+        view = service.act(sid, wid, body.action, api_key=x_arena_key)
+        return view.to_observation(service.episode(sid, wid, api_key=x_arena_key).world.patient_ids)
 
     @app.get("/v1/scorecards/{sid}/worlds/{wid}")
-    def state(sid: str, wid: str) -> Observation:
-        episode = service.episode(sid, wid)
+    def state(sid: str, wid: str, x_arena_key: str = Header(min_length=8)) -> Observation:
+        episode = service.episode(sid, wid, api_key=x_arena_key)
         return episode.view().to_observation(episode.world.patient_ids)
 
     @app.post("/v1/scorecards/{sid}/close")
-    def close(sid: str) -> Scorecard:
-        return service.close(sid)
+    def close(sid: str, x_arena_key: str = Header(min_length=8)) -> Scorecard:
+        return service.close(sid, api_key=x_arena_key)
 
     return app

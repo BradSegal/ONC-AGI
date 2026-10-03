@@ -1,12 +1,13 @@
 # Stability
 
-**Release:** `1.0.0-rc1`. Interface `1.0`, scorer `scorer-1.0`, engine `engine-1.0`.
+**Release:** `1.0.0-rc2`. Interface `1.0`, scorer `scorer-1.0`, engine `engine-1.0`.
 
 ## Release plan
 
 | Release | Contents | When |
 |---|---|---|
-| `1.0.0-rc1` (this) | Interface specification, runtime, toy fixtures, template agents, conformance | Now |
+| `1.0.0-rc1` | Interface specification, runtime, toy fixtures, template agents, conformance | 2026-10-03 |
+| `1.0.0-rc2` (this) | Security and correctness fixes to the hosted scorecards, matched chance and sequential agents | 2026-10-03 |
 | `1.0.0-rc*` | Interface fixes from collaborator feedback (additive only) | Until the feedback freeze |
 | `1.0.0` | Frozen interface | **Feedback freeze: 2026-10-03 23:00 BST** |
 | Benchmark release | Public-train benchmark worlds from real cohorts, evaluation server, baseline results | After independent assurance |

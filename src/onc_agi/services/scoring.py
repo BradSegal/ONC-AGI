@@ -153,9 +153,9 @@ def chance_recovery(
     random complete ordering.
 
     The Monte Carlo draws depend on the world alone: draw ``i`` fixes one permutation
-    of every stratum, and the list consumes each stratum's permutation in order. The
-    estimate is therefore a fixed function of the list's sequence of strata, so
-    re-ordering or padding the tail cannot re-roll it (d4 finding A1).
+    of every stratum, and the list's representatives consume each stratum's permutation
+    in order. The estimate is therefore a fixed function of the strata sequence of the
+    representatives the scorer actually credits, so neither re-ordering or padding the tail nor inserting cluster-mates or neutral features moves it.
     """
     if key.is_null or (ranking is not None and not ranking):
         return 0.0, 0.0
@@ -173,7 +173,13 @@ def chance_recovery(
     members: dict[str, list[str]] = {}
     for feature in sorted(key.strata):
         members.setdefault(key.strata[feature], []).append(feature)
-    listed_strata = [key.strata[f] for f in ranking]
+    # the matched list mirrors the *scored* list: one draw per representative (deduplicated,
+    # neutral-removed), so padding with cluster-mates or neutral features cannot move chance
+    # scanning stops at depth R, so the tail beyond it cannot either
+    representatives = _representatives(ranking, key.clusters, neutral)
+    if not representatives:
+        return 0.0, 0.0
+    listed_strata = [key.strata[f] for f in representatives]
     perms = {
         s: np.random.default_rng(stable_seed("chance", key.world_id, s)).permuted(
             np.tile(np.arange(len(members[s])), (draws, 1)), axis=1

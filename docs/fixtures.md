@@ -1,6 +1,6 @@
 # Toy fixture worlds
 
-Release 1.0.0-rc1 ships 20 **toy contract fixtures**: ten mechanisms, each as a full-access world and a sequential world. The two are separate draws of the same mechanism, so they never share a pool. They live in `src/onc_agi/fixtures/store/public_train/` and are installed with the package. `onc_agi.adapters.cli.fixture_store()` returns their location.
+Release 1.0.0-rc2 ships 20 **toy contract fixtures**: ten mechanisms, each as a full-access world and a sequential world. The two are separate draws of the same mechanism, so they never share a pool. They live in `src/onc_agi/fixtures/store/public_train/` and are installed with the package. `onc_agi.adapters.cli.fixture_store()` returns their location.
 
 These are **not benchmark tasks**:
 - they are synthetic, so they contain no patient data;

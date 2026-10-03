@@ -46,7 +46,8 @@ def served(tmp_path: Path) -> tuple[TestClient, InMemoryStore, dict[str, ListSin
     service = ScorecardService(
         store, JsonLedger(tmp_path / "ledger.json"), traces=lambda s: sinks.setdefault(s, ListSink())
     )
-    return TestClient(create_app(service)), store, sinks
+    # clients send their key on every call (as ArenaClient does); protected routes require it
+    return TestClient(create_app(service), headers={"X-Arena-Key": KEY}), store, sinks
 
 
 def open_card(http: TestClient, tier: str = "public_train", n: int = 2) -> dict:  # type: ignore[type-arg]
@@ -63,7 +64,8 @@ def test_health_reports_the_interface_version(served) -> None:  # type: ignore[n
 
 
 def test_opening_requires_an_identifying_key(served) -> None:  # type: ignore[no-untyped-def]
-    http, _, _ = served
+    served_client, _, _ = served
+    http = TestClient(served_client.app)  # no default key: the request carries only what is given here
     body = {"agent": "a", "tier": "public_train", "n_worlds": 1}
     for headers in ({}, {"X-Arena-Key": "short"}):
         r = http.post("/v1/scorecards", json=body, headers=headers)
@@ -226,3 +228,22 @@ def test_the_conformance_suite_passes_against_the_reference_server(served) -> No
         "conflicting_request_refused",
         "closed_episode_refuses_actions",
     } <= set(report.checks)
+
+
+def test_only_the_opening_key_can_act_read_or_close_a_scorecard(served) -> None:  # type: ignore[no-untyped-def]
+    """any caller who learned a scorecard id could act on or close it."""
+    http, _, _ = served
+    opened = open_card(http)
+    sid, wid = opened["scorecard_id"], opened["cards"][0]["world_id"]
+    base = f"/v1/scorecards/{sid}/worlds/{wid}"
+    reset = {"action": {"kind": "reset", "request_id": "r", "world_id": wid}}
+    other = {"X-Arena-Key": "someone-else-key"}
+    for response in (
+        http.post(f"{base}/actions", json=reset, headers=other),
+        http.get(base, headers=other),
+        http.post(f"/v1/scorecards/{sid}/close", headers=other),
+    ):
+        assert response.status_code == 400
+        assert response.json() == {"code": "invalid_payload", "message": f"unknown scorecard {sid!r}"}
+    assert http.post(f"{base}/actions", json=reset).status_code == 200  # the owner still can
+    assert http.post(f"/v1/scorecards/{sid}/close").status_code == 200

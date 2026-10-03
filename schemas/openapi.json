@@ -1193,6 +1193,16 @@
        "title": "Sid",
        "type": "string"
       }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
      }
     ],
     "responses": {
@@ -1241,6 +1251,16 @@
        "title": "Wid",
        "type": "string"
       }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
      }
     ],
     "responses": {
@@ -1287,6 +1307,16 @@
       "required": true,
       "schema": {
        "title": "Wid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
        "type": "string"
       }
      }

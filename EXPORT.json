@@ -1,6 +1,6 @@
 {
  "description": "Runtime files exported from the source of record; each hash identifies the exact bytes.",
- "tree_sha256": "111a5a28dabdb67f0ac4a05a272efba65f919239ea700e40fe4a9a273a0e7f4c",
+ "tree_sha256": "6364f2208735b07ea4ec9a4c9a986f6f6d2dd9bcc4ae06b4f3e2341036597360",
  "files": [
   {
    "path": "src/onc_agi/__init__.py",
@@ -12,7 +12,7 @@
   },
   {
    "path": "src/onc_agi/adapters/agents/__init__.py",
-   "sha256": "61b90f9f21d07c028ba8ee130d29583301ad5533b9ad492a9a3b1dfb559cd104"
+   "sha256": "f2c6e210625ff17daf5e718fd349dd02e2834f58f0782b1e2bda55237f25e582"
   },
   {
    "path": "src/onc_agi/adapters/agents/baselines.py",
@@ -20,11 +20,11 @@
   },
   {
    "path": "src/onc_agi/adapters/agents/cheaters.py",
-   "sha256": "72adf55e2bfcb13e894386a2eedbb60814323aa3a10422094bc026b0ee89c416"
+   "sha256": "36b3399f6d415f3240ec255f2ac8880433f289be95a19a19f4b18593768b9278"
   },
   {
    "path": "src/onc_agi/adapters/cli.py",
-   "sha256": "7c371db1d43f8bcbaa78083577f85b5f6ca9a0f8ac7700ba30a211af25ed351b"
+   "sha256": "cdd5a086a6a6cd8fd8acea3652e63b32e5a6c331fe25e961275c7fc4e4bdce11"
   },
   {
    "path": "src/onc_agi/adapters/client.py",
@@ -36,7 +36,7 @@
   },
   {
    "path": "src/onc_agi/adapters/http.py",
-   "sha256": "6d252fbf0d0934674eab5f94ad5ca4c7d313cc59a2716f95426117bed991d952"
+   "sha256": "8f3eb8faeaa6cda02dacbaa722fe64528a2968c5a6441ea9fdb1a585d328de9a"
   },
   {
    "path": "src/onc_agi/adapters/inspect_task.py",
@@ -76,7 +76,7 @@
   },
   {
    "path": "src/onc_agi/infra/ledger.py",
-   "sha256": "452ee0d3d462fa5d3d28ad1bdf2e83e05190baf3a582ab7dc3012d0e93b0e754"
+   "sha256": "c1e7729158e269214184c7200ffff7db518be074795d60ee376ed54720a57543"
   },
   {
    "path": "src/onc_agi/infra/recorder.py",
@@ -88,7 +88,7 @@
   },
   {
    "path": "src/onc_agi/services/alignment.py",
-   "sha256": "f990b5b74330a984b381a96b8b90e5edb685c29c37693646db7a4e6a26567353"
+   "sha256": "726206727a4fa5313ac008e85425601f339c72e667cf59a2b74120b3d40cc9f1"
   },
   {
    "path": "src/onc_agi/services/engine.py",
@@ -103,12 +103,16 @@
    "sha256": "a059274410cd8ad8c00d347d261e65bbb9470dea698b16186b696f2256808cbb"
   },
   {
+   "path": "src/onc_agi/services/score_test.py",
+   "sha256": "b5f18a59151d4230424c59625070c8a60a78233dd5a24359a4c6a7f5c553b278"
+  },
+  {
    "path": "src/onc_agi/services/scorecards.py",
-   "sha256": "f959487f01f064eeb183589bcd5e1eb98c6c90f948aa3c050bf9c2e3c87caead"
+   "sha256": "2355450af2694553900b77440bee5a343e3b5fdfc1df24a9a7c7679d805e722b"
   },
   {
    "path": "src/onc_agi/services/scoring.py",
-   "sha256": "f4ec822cadf59a214ad351c6bd77c027209d0036bdf97c2ad1e8ba36aa06d393"
+   "sha256": "82d1570e54201b232971436565541ce8e4724dde5b1b34535630493ff816b35a"
   },
   {
    "path": "src/onc_agi/adapters/sandbox/Dockerfile",
@@ -144,11 +148,15 @@
   },
   {
    "path": "tests/runtime/integration/test_http_api.py",
-   "sha256": "9ec099f6dfe05ce3739d042db91f170047c69948f532970d915e661c1e2cd220"
+   "sha256": "28c1651627b501068a4544095ddf1eb6a90241744260e24323e2e2c4154edbb1"
   },
   {
    "path": "tests/runtime/integration/test_inspect_harness.py",
    "sha256": "61a42a40d7d8843056580f4dc493a53786ddf302ef533133b5b63befedf22051"
+  },
+  {
+   "path": "tests/runtime/statistical/test_score_chance_padding.py",
+   "sha256": "56f37c6285c99c1b997040bc3d5a28128c1d7d50c66a3fe70a9e50c35de27184"
   },
   {
    "path": "tests/runtime/statistical/test_score_chance_properties.py",
@@ -160,11 +168,15 @@
   },
   {
    "path": "tests/runtime/unit/test_agents.py",
-   "sha256": "7e425e32e5412ed8de3e8fc72d5f28be451c06ba2ed008f6e3360f0ae9fad472"
+   "sha256": "c0555de613373f29db7966125f7cd6ff7f937a3b0e85152c4248c0992434c8f3"
   },
   {
    "path": "tests/runtime/unit/test_alignment.py",
    "sha256": "24f9f38a0e95406dce3516d8d1b618e68f80f4e8213c1717919e489e4cb02bff"
+  },
+  {
+   "path": "tests/runtime/unit/test_alignment_products.py",
+   "sha256": "bc006962325c91e736ed1d4fb3c586941857ab9f85aa1d4259f3591d89192150"
   },
   {
    "path": "tests/runtime/unit/test_architecture.py",
@@ -208,7 +220,7 @@
   },
   {
    "path": "docs/interface.md",
-   "sha256": "65f7d710e411706aaa2babaf6ad8e32e7d9d6d123564ee05e84caa18eb16c5bd"
+   "sha256": "862d19bc75974349b6fd93196e8f521209f636b6adf672674e102a505b94aebf"
   },
   {
    "path": "docs/scoring.md",

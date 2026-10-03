@@ -19,14 +19,13 @@ import logging
 from collections.abc import Sequence
 
 import numpy as np
-import statsmodels.api as sm
 from numpy.typing import NDArray
-from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
 from onc_agi.core.schema import AlignmentDiagnostics, AnswerKey, CreditRule, WorldScore
 from onc_agi.core.world import WorldData
 from onc_agi.services import scoring
 from onc_agi.services.engine import EpisodeView
+from onc_agi.services.score_test import logistic_score_z
 
 log = logging.getLogger(__name__)
 
@@ -44,8 +43,8 @@ def oracle_analyst_ranking(
         feats = [p.true_feature for p in group.parts]
         if group.credit_rule is CreditRule.JOINT:
             if all(f in index for f in feats):
-                product = np.prod(np.column_stack([x[:, index[f]] for f in feats]), axis=1)
-                terms.append(("|".join(feats), product))
+                factors = [_factor(x[:, index[f]], group.role) for f in feats]
+                terms.append(("|".join(feats), np.prod(np.column_stack(factors), axis=1)))
             continue
         terms.extend((f, x[:, index[f]]) for f in feats if f in index)
     if not terms or len(y) < 10:
@@ -71,16 +70,23 @@ def oracle_analyst_ranking(
     return tuple(ranking)
 
 
+def _factor(column: NDArray[np.float64], role: str) -> NDArray[np.float64]:
+    """One factor of a product term, built as the generator builds it.
+
+    Measurements enter standardised; a binary indicator enters raw (effect modifier: the effect
+    exists in one group) or as -1/+1 (mixture: the effect reverses). Raw products of positive-mean
+    measurements are dominated by main effects and miss the planted term.
+    """
+    values = column[~np.isnan(column)]
+    if values.size and set(np.unique(values)) <= {0.0, 1.0}:
+        return 2 * column - 1 if role == "mixture" else column
+    sd = float(np.nanstd(column))
+    return (column - np.nanmean(column)) / (sd if sd > 0 else 1.0)
+
+
 def _logit_z(design: NDArray[np.float64], y: NDArray[np.int64]) -> NDArray[np.float64] | None:
-    sd = design.std(axis=0)
-    sd[sd == 0] = 1.0
-    exog = sm.add_constant((design - design.mean(axis=0)) / sd, has_constant="add")
-    try:
-        fit = sm.Logit(y.astype(float), exog).fit(disp=0, maxiter=100)
-    except (PerfectSeparationError, np.linalg.LinAlgError) as exc:
-        log.info("oracle analyst fit failed: %s", exc)
-        return None
-    return np.asarray(fit.tvalues[1:], dtype=float)
+    """The arena's detection statistic: signed score z of each term given the others."""
+    return logistic_score_z(list(design.T), y)
 
 
 def _utility(score: WorldScore) -> float:

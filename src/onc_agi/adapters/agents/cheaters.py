@@ -16,7 +16,7 @@ from sklearn.metrics import roc_auc_score
 
 from onc_agi.adapters.agents.baselines import prepared, univariate_bh
 from onc_agi.core.ports import WorldStore
-from onc_agi.core.schema import GroupLabel, Timing, WorldCard
+from onc_agi.core.schema import GroupLabel, Tier, Timing, WorldCard
 from onc_agi.services.kit import AnalysisInput
 from onc_agi.services.scoring import stable_seed
 
@@ -166,6 +166,11 @@ class LearnedRanker:
         labels: list[int] = []
         for wid in world_ids:
             world = store.world(wid)
+            if world.card.tier is not Tier.PUBLIC_TRAIN:
+                # nothing learns from eval or private worlds
+                raise ValueError(
+                    f"{wid} is a {world.card.tier.value} world; training reads public-train only"
+                )
             key = store.answer_key(wid)
             truth = {
                 f

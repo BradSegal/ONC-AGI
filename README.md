@@ -2,7 +2,7 @@
 
 **ARC-style biomarker discovery worlds.** Each world is a cohort with an outcome and a hidden, planted mechanism (or none). An agent must find the drivers rather than their correlates, and must say "nothing" when nothing can be found. One deterministic score, the Discovery Score, ranks agents against an oracle, standard baselines and cheating strategies, in full-access and sequential-acquisition modes.
 
-> **Status: contract preview `1.0.0-rc1`.** This release contains:
+> **Status: contract preview `1.0.0-rc2`.** This release contains:
 > - the interface specification;
 > - the real engine, scorer, Agent kit, HTTP server and conformance suite;
 > - toy fixture worlds and template agents.
