@@ -78,6 +78,6 @@
   "sxf7": "expression"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 2.978148790458494,
+ "detection_threshold": 2.9781,
  "oracle_version": "toy-1-by-construction"
 }

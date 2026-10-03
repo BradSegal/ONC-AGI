@@ -93,6 +93,6 @@
   "jln6": "mixed"
  },
  "reference_cost": 21600.0,
- "detection_threshold": 2.8377853501152526,
+ "detection_threshold": 2.8378,
  "oracle_version": "toy-1-by-construction"
 }

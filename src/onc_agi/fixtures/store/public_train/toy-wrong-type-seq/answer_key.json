@@ -77,6 +77,6 @@
   "hdb5": "mixed"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 2.8612932438989893,
+ "detection_threshold": 2.8613,
  "oracle_version": "toy-1-by-construction"
 }

@@ -59,6 +59,6 @@
   "kxq8": "expression"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.063461961773814,
+ "detection_threshold": 3.0635,
  "oracle_version": "toy-1-by-construction"
 }

@@ -77,6 +77,6 @@
   "gtw3": "lab|c0|d0"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.029049517797994,
+ "detection_threshold": 3.029,
  "oracle_version": "toy-1-by-construction"
 }

@@ -77,6 +77,6 @@
   "pcb6": "mixed"
  },
  "reference_cost": 12960.0,
- "detection_threshold": 3.0079284172794782,
+ "detection_threshold": 3.0079,
  "oracle_version": "toy-1-by-construction"
 }

@@ -77,6 +77,6 @@
   "dvg6": "expression"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.03820603838254,
+ "detection_threshold": 3.0382,
  "oracle_version": "toy-1-by-construction"
 }

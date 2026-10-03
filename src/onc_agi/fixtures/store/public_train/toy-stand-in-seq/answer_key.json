@@ -78,6 +78,6 @@
   "ltj7": "mixed"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.036221006819937,
+ "detection_threshold": 3.0362,
  "oracle_version": "toy-1-by-construction"
 }

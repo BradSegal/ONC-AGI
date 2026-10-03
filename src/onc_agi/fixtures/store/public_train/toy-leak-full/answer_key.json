@@ -77,6 +77,6 @@
   "brc4": "mixed"
  },
  "reference_cost": 12960.0,
- "detection_threshold": 3.000808758562642,
+ "detection_threshold": 3.0008,
  "oracle_version": "toy-1-by-construction"
 }

@@ -93,6 +93,6 @@
   "nvg4": "expression"
  },
  "reference_cost": 21600.0,
- "detection_threshold": 3.036615067761133,
+ "detection_threshold": 3.0366,
  "oracle_version": "toy-1-by-construction"
 }

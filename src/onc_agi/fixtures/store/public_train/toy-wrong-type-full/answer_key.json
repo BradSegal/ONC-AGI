@@ -77,6 +77,6 @@
   "fwr1": "expression"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.1584096446142698,
+ "detection_threshold": 3.1584,
  "oracle_version": "toy-1-by-construction"
 }

@@ -77,6 +77,6 @@
   "rln6": "expression"
  },
  "reference_cost": 12960.0,
- "detection_threshold": 3.0054608007759755,
+ "detection_threshold": 3.0055,
  "oracle_version": "toy-1-by-construction"
 }

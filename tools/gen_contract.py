@@ -60,9 +60,20 @@ MODELS: dict[str, type[BaseModel]] = {
 }
 
 
+def stable(payload: Any) -> Any:
+    """Floats to 10 significant digits, so reductions that differ in the last bits across CPUs agree."""
+    if isinstance(payload, float):
+        return float(f"{payload:.10g}")
+    if isinstance(payload, dict):
+        return {k: stable(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [stable(v) for v in payload]
+    return payload
+
+
 def dump(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n")
+    path.write_text(json.dumps(stable(payload), indent=1, sort_keys=True) + "\n")
 
 
 def normalise(payload: Any, sid: str) -> Any:

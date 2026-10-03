@@ -85,6 +85,6 @@
   "bcj9": "expression"
  },
  "reference_cost": 25920.0,
- "detection_threshold": 3.038054804123262,
+ "detection_threshold": 3.0381,
  "oracle_version": "toy-1-by-construction"
 }

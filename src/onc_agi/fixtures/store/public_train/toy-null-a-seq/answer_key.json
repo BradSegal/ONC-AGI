@@ -59,6 +59,6 @@
   "ztp8": "lab|c0|d0"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 2.848222006150691,
+ "detection_threshold": 2.8482,
  "oracle_version": "toy-1-by-construction"
 }

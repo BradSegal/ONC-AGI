@@ -77,6 +77,6 @@
   "fgf9": "expression"
  },
  "reference_cost": 12960.0,
- "detection_threshold": 2.916333565779289,
+ "detection_threshold": 2.9163,
  "oracle_version": "toy-1-by-construction"
 }

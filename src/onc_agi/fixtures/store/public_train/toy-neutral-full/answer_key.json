@@ -94,6 +94,6 @@
   "wwn9": "expression"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.058892753240959,
+ "detection_threshold": 3.0589,
  "oracle_version": "toy-1-by-construction"
 }

@@ -85,6 +85,6 @@
   "tcg3": "expression"
  },
  "reference_cost": 25920.0,
- "detection_threshold": 3.076092371588597,
+ "detection_threshold": 3.0761,
  "oracle_version": "toy-1-by-construction"
 }

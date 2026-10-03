@@ -59,6 +59,6 @@
   "xzt7": "mixed"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 3.018043904883393,
+ "detection_threshold": 3.018,
  "oracle_version": "toy-1-by-construction"
 }

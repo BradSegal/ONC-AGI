@@ -59,6 +59,6 @@
   "xpc4": "mixed"
  },
  "reference_cost": 17280.0,
- "detection_threshold": 2.962769747814007,
+ "detection_threshold": 2.9628,
  "oracle_version": "toy-1-by-construction"
 }

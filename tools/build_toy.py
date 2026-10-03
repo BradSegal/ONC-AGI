@@ -417,7 +417,7 @@ def build_one(spec: Spec, mode: Mode) -> tuple[WorldData, AnswerKey]:
         clusters=clusters_of(x, ids),
         strata={ids[j]: label for j, label in stratum_label.items()},
         reference_cost=spec.n_ref * per_patient,
-        detection_threshold=threshold,
+        detection_threshold=round(threshold, 4),  # matrix products differ in the last bits across CPUs
         oracle_version=f"{BUILDER_VERSION}-by-construction",
     )
     return world, key
