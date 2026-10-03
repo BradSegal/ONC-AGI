@@ -70,7 +70,9 @@ def test_names_are_fake_and_cannot_collide_with_hgnc_symbols() -> None:
 
 def test_builder_is_deterministic(tmp_path: Path) -> None:
     build_toy.main(["--out", str(tmp_path / "a")])
-    assert tree_digest(tmp_path / "a") == tree_digest(fixture_store())
+    rebuilt, committed = tree_digest(tmp_path / "a"), tree_digest(fixture_store())
+    differing = sorted(k for k in rebuilt.keys() | committed.keys() if rebuilt.get(k) != committed.get(k))
+    assert not differing, differing
 
 
 @pytest.mark.parametrize("mode", ["full", "seq"])
