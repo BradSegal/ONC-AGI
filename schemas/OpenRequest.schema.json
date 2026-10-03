@@ -1,5 +1,13 @@
 {
  "$defs": {
+  "Mode": {
+   "enum": [
+    "full_access",
+    "sequential"
+   ],
+   "title": "Mode",
+   "type": "string"
+  },
   "Tier": {
    "enum": [
     "public_train",
@@ -18,11 +26,31 @@
    "title": "Agent",
    "type": "string"
   },
+  "mode": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/Mode"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Restrict the worlds to one mode."
+  },
   "n_worlds": {
-   "exclusiveMinimum": 0,
-   "maximum": 10000,
-   "title": "N Worlds",
-   "type": "integer"
+   "anyOf": [
+    {
+     "exclusiveMinimum": 0,
+     "maximum": 10000,
+     "type": "integer"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "N Worlds"
   },
   "tags": {
    "default": [],
@@ -39,12 +67,29 @@
    "default": "open",
    "title": "Track",
    "type": "string"
+  },
+  "world_ids": {
+   "anyOf": [
+    {
+     "items": {
+      "type": "string"
+     },
+     "maxItems": 10000,
+     "minItems": 1,
+     "type": "array"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Named worlds (public train only).",
+   "title": "World Ids"
   }
  },
  "required": [
   "agent",
-  "tier",
-  "n_worlds"
+  "tier"
  ],
  "title": "OpenRequest",
  "type": "object"

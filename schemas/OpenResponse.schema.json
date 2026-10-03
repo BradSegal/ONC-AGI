@@ -116,6 +116,20 @@
      "title": "Features",
      "type": "array"
     },
+    "horizon_days": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0.0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Survival only: administrative follow-up horizon in days (later events are censored).",
+     "title": "Horizon Days"
+    },
     "interface_version": {
      "const": "1.0",
      "default": "1.0",
@@ -136,8 +150,12 @@
      "default": "fake"
     },
     "outcome_type": {
-     "const": "binary",
      "default": "binary",
+     "description": "binary: outcome is 0/1. survival: outcome is the event indicator and data carry follow-up time.",
+     "enum": [
+      "binary",
+      "survival"
+     ],
      "title": "Outcome Type",
      "type": "string"
     },

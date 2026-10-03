@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import httpx
 import numpy as np
 
@@ -10,6 +12,7 @@ from onc_agi.core.schema import (
     Action,
     ActionEnvelope,
     ArenaErrorPayload,
+    Mode,
     Observation,
     Reset,
     Scorecard,
@@ -44,6 +47,7 @@ def view_from_observation(card: WorldCard, obs: Observation) -> EpisodeView:
         feature_ids=fids,
         x=x,
         measured=tuple(measured),
+        time=None if obs.revealed.time is None else np.asarray(obs.revealed.time, dtype=np.float64),
     )
 
 
@@ -59,11 +63,31 @@ class ArenaClient:
         return response
 
     def open(
-        self, agent: str, tier: Tier, n_worlds: int, *, track: str = "open"
+        self,
+        agent: str,
+        tier: Tier,
+        n_worlds: int | None = None,
+        *,
+        track: str = "open",
+        mode: Mode | None = None,
+        world_ids: Sequence[str] | None = None,
+        tags: Sequence[str] = (),
     ) -> tuple[str, list[WorldCard]]:
-        body = {"agent": agent, "tier": tier.value, "n_worlds": n_worlds, "track": track}
+        """Open a scorecard of ``n_worlds`` drawn worlds, or of named public-train ``world_ids``."""
+        body: dict[str, object] = {"agent": agent, "tier": tier.value, "track": track, "tags": list(tags)}
+        if n_worlds is not None:
+            body["n_worlds"] = n_worlds
+        if world_ids is not None:
+            body["world_ids"] = list(world_ids)
+        if mode is not None:
+            body["mode"] = mode.value
         data = self._check(self.http.post("/v1/scorecards", json=body, headers=self.headers)).json()
         return data["scorecard_id"], [WorldCard.model_validate(c) for c in data["cards"]]
+
+    def worlds(self, tier: Tier = Tier.PUBLIC_TRAIN) -> list[WorldCard]:
+        """Cards of every public-train world (eval tiers are never listed)."""
+        r = self.http.get("/v1/worlds", params={"tier": tier.value}, headers=self.headers)
+        return [WorldCard.model_validate(c) for c in self._check(r).json()["cards"]]
 
     def act(self, sid: str, wid: str, action: Action) -> Observation:
         body = ActionEnvelope(action=action).model_dump(mode="json")
@@ -78,6 +102,11 @@ class ArenaClient:
         return Scorecard.model_validate(
             self._check(self.http.post(f"/v1/scorecards/{sid}/close", headers=self.headers)).json()
         )
+
+    def scorecard(self, sid: str) -> Scorecard:
+        """The server's record of a closed scorecard (only its owner may read it)."""
+        r = self.http.get(f"/v1/scorecards/{sid}", headers=self.headers)
+        return Scorecard.model_validate(self._check(r).json())
 
     def play(self, agent: Agent, sid: str, card: WorldCard, *, max_steps: int = MAX_STEPS) -> Observation:
         obs = self.act(sid, card.world_id, Reset(request_id=f"{agent.name}-reset", world_id=card.world_id))

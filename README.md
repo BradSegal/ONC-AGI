@@ -2,12 +2,12 @@
 
 **ARC-style biomarker discovery worlds.** Each world is a cohort with an outcome and a hidden, planted mechanism (or none). An agent must find the drivers rather than their correlates, and must say "nothing" when nothing can be found. One deterministic score, the Discovery Score, ranks agents against an oracle, standard baselines and cheating strategies, in full-access and sequential-acquisition modes.
 
-> **Status: contract preview `1.0.0-rc2`.** This release contains:
-> - the interface specification;
-> - the real engine, scorer, Agent kit, HTTP server and conformance suite;
-> - toy fixture worlds and template agents.
+> **Status: release candidate `1.0.0-rc3`, first-pass results.** This release contains:
+> - the interface specification, the engine, the scorer, the Agent kit, the HTTP server and the conformance suite;
+> - **2,489 public-train benchmark worlds**, built from seven real cohort sources with oracle-certified answer keys, as release downloads (below);
+> - first-pass scorecards for reference, baseline, gaming and LLM agents on those worlds, and the website.
 >
-> It is for collaborators to design and test agents offline while the benchmark is being built. Benchmark worlds, built from real cancer cohorts with oracle-certified answer keys, and the evaluation server arrive in a later release. Toy-world scores are not results.
+> Public-train worlds publish their answer keys, as ARC's training tasks do: use them to develop agents and to run large offline evaluations. The hidden evaluation tiers are scored by a hosted server in a later release. First-pass results are public-train results and are labelled as such.
 >
 > ONC-AGI is inspired by [ARC-AGI](https://arcprize.org/) and follows its conventions. It is not affiliated with the ARC Prize Foundation. It measures discovery competence on planted mechanisms in real correlation structure. It does not validate real biomarkers.
 
@@ -29,6 +29,47 @@ uv run python examples/agents/pipeline_agent.py # a full-access agent in a dozen
 Without uv: `pip install .` then `onc-agi smoke`.
 
 The smoke command prints one scorecard per agent: the oracle at 1.00, the standard baselines in between, and every cheater at 0.
+
+## World sets
+
+Each set is one release download: a world store you can point any command at. Answer keys are included (public train).
+
+| Download | Worlds | Contents |
+|---|---|---|
+| `onc-agi-public-train-full-access-1.0.0rc3.tar.gz` | 995 | Full-access worlds over every mechanism, 20% with no signal |
+| `onc-agi-public-train-sequential-1.0.0rc3.tar.gz` | 996 | The same distribution in sequential-acquisition mode |
+| `onc-agi-public-train-expressive-full-access-1.0.0rc3.tar.gz` | 248 | Harder worlds: survival outcomes, nonlinear drivers, missing data, up to 400 features |
+| `onc-agi-public-train-expressive-sequential-1.0.0rc3.tar.gz` | 250 | The expressive set in sequential mode |
+
+Sources are mixed across TCGA-BRCA, SCAN-B, METABRIC, TCGA pan-cancer, MSK-IMPACT, NHANES and pooled TCGA-BRCA with SCAN-B. Every world composes up to three mechanisms from [`docs/roles.md`](docs/roles.md). Difficulty tiers 0–2 are balanced within each set.
+
+```bash
+gh release download v1.0.0rc3 -R BradSegal/ONC-AGI -p 'onc-agi-public-train-full-access-*'
+sha256sum -c --ignore-missing SHA256SUMS            # optional: the checksums are a release asset too
+mkdir -p worlds/full && tar -xzf onc-agi-public-train-full-access-1.0.0rc3.tar.gz -C worlds/full
+uv run onc-agi evaluate --agent univariate_bh --store worlds/full            # one baseline on every world
+uv run onc-agi play --agent llm --profile <name> --store worlds/full --n 120 --workers 16  # any OpenAI-compatible model (docs/agents-kit.md)
+```
+
+Each archive holds `public_train/<world>/` bundles (`card.json`, `pool.parquet`, `queues.json`, `answer_key.json`) and `manifests/` (each world's mechanism, source, mode and difficulty tier).
+
+## First-pass results
+
+Discovery Score on the first-pass set: the first 120 worlds of each core public-train download (240 worlds, 20% with no signal). Each row is one scorecard per mode. GPT 6 Luna ran on the standard Inspect track; its two scorecards per mode agree within 0.04. All ten gaming strategies score 0.00 in both modes (the largest is 0.0004).
+
+| Agent | Full access | Sequential | Find | Restraint |
+|---|---|---|---|---|
+| Oracle | 1.00 | 1.00 | 1.00 | 1.00 |
+| Random list | 0.00 | 0.00 | 0.01 | 0.00 |
+| GPT 6 Luna | 0.29 | 0.22 | 0.50 | 0.50 |
+| Forward score selection | 0.37 | 0.32 | 0.47 | 0.74 |
+| Univariate + BH | 0.28 | 0.23 | 0.35 | 0.73 |
+| Lasso | 0.22 | 0.29 | 0.46 | 0.55 |
+| Elastic net | 0.17 | 0.27 | 0.44 | 0.49 |
+| Stability selection | 0.22 | 0.20 | 0.33 | 0.63 |
+| Random forest | 0.12 | 0.11 | 0.33 | 0.35 |
+
+These are public-train results. Rows whose 95% intervals overlap are not separated; the intervals and every scorecard are on the website and in `site/results/` and `site/src/data/results.json`.
 
 ## What's here
 

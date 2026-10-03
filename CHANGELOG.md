@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.0.0rc3 — 2026-10-04
+
+Benchmark worlds, first-pass results and the website. The payload schemas stay interface `1.0`. Survival worlds add optional fields that binary payloads omit. The scorer label now carries a digest of its source (`scorer-1.0+<digest>`), so scorecards from different rule sets are never compared as equal.
+
+**Added**
+- **2,489 public-train benchmark worlds** as release downloads: 995 full-access, 996 sequential and 498 expressive worlds, mixed over seven real cohort sources, each with its oracle certificate and answer key. See *World sets* in the README.
+- New world kinds:
+  - survival outcomes (time to event with censoring), certified by the Cox score statistic;
+  - nonlinear drivers;
+  - missing cells, some of them outcome-dependent on non-answer columns;
+  - composed worlds with up to three mechanisms.
+- Every clinical variable causes a few measurements, and every measurement carries a cohort offset, in every world. Confounder and batch worlds are therefore no longer recognisable by their shape.
+- The agents kit: `onc-agi play` runs any agent (built-in, your own class, or the OpenAI-compatible `llm` template) on a scorecard in parallel, with recordings, a spend cap and `onc-agi explain`. Also new: `onc-agi worlds`, `GET /v1/worlds`, named public-train draws, and gzip responses. See `docs/agents-kit.md` and `docs/evaluation-protocol.md`.
+- Scorecards are archived and survive a server restart. Closed scorecards are served at `GET /v1/scorecards/{sid}`.
+- The website source is in `site/`, with GitHub Pages deployment.
+
+**Changed**
+- Credit at depth R uses maximum matching, so list order inside the top R and the private order of groups never move a score.
+- `onc-agi serve` refuses a store that holds evaluation worlds unless issued keys are supplied (`--api-keys`).
+- Eval-tier scorecards need at least 40 worlds by default.
+- The score test refits a nuisance model that separates the outcome under a weak prior. A strong leak beside a tested feature no longer voids that feature's statistic.
+
+**Fixed**
+- `evaluate --agent` listed `seq_` names that could not be built.
+- The sequential task card now names the strata, prices and refresh rule, and tool schemas are strict-compatible for OpenAI models.
+
 ## 1.0.0rc2 — 2026-10-03
 
 Security and correctness fixes found by independent statistical review and adversarial testing. Payload schemas are unchanged (interface `1.0`, scorer `scorer-1.0`).

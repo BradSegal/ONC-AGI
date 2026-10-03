@@ -11,6 +11,10 @@ Change policy
 ``INTERFACE_VERSION`` follows ``MAJOR.MINOR``. A MINOR bump may add optional
 fields only; anything that removes, renames or re-types a field, or changes a
 scoring semantic, is a MAJOR bump and must be recorded in the decision log.
+
+Survival outcomes are additive optional fields that are *omitted from
+serialisation when absent*, so every binary payload is byte-identical to v1.0 and a strict
+v1.0 client still parses it; ``INTERFACE_VERSION`` therefore stays "1.0".
 """
 
 from __future__ import annotations
@@ -85,7 +89,16 @@ class WorldCard(Frozen):
     world_id: WorldId
     tier: Tier
     mode: Mode
-    outcome_type: Literal["binary"] = "binary"
+    outcome_type: Literal["binary", "survival"] = Field(
+        default="binary",
+        description="binary: outcome is 0/1. survival: outcome is the event indicator and data carry follow-up time.",
+    )
+    horizon_days: float | None = Field(
+        default=None,
+        gt=0.0,
+        exclude_if=lambda v: v is None,
+        description="Survival only: administrative follow-up horizon in days (later events are censored).",
+    )
     n_pool: int = Field(gt=0, description="Revealable patients in this world.")
     features: tuple[FeatureMeta, ...] = Field(min_length=1)
     strata: tuple[str, ...] = ("all",)
@@ -110,6 +123,12 @@ class WorldCard(Frozen):
         if len(ids) != len(set(ids)):
             raise ValueError("feature identifiers must be unique")
         return value
+
+    @model_validator(mode="after")
+    def _horizon_matches_outcome(self) -> WorldCard:
+        if (self.horizon_days is not None) != (self.outcome_type == "survival"):
+            raise ValueError("survival cards (and only they) carry a follow-up horizon")
+        return self
 
     def feature_ids(self) -> tuple[str, ...]:
         return tuple(item.feature_id for item in self.features)
@@ -168,17 +187,26 @@ class EpisodeStatus(StrEnum):
 
 
 class RevealedData(Frozen):
-    """Columnar revealed data. Missing cells are ``None``."""
+    """Columnar revealed data. Missing cells are ``None``.
+
+    Survival worlds: ``outcome`` is the event indicator (1 = event observed) and ``time`` the
+    follow-up in days (to the event or to censoring). ``time`` is omitted for binary worlds.
+    """
 
     patient_ids: tuple[str, ...]
     outcome: tuple[int, ...]
     stratum: tuple[str, ...]
     columns: dict[str, tuple[float | None, ...]]
+    time: tuple[float, ...] | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_validator(mode="after")
     def _aligned(self) -> RevealedData:
         n = len(self.patient_ids)
-        if len(self.outcome) != n or len(self.stratum) != n:
+        if (
+            len(self.outcome) != n
+            or len(self.stratum) != n
+            or (self.time is not None and len(self.time) != n)
+        ):
             raise ValueError("revealed rows are misaligned")
         for name, values in self.columns.items():
             if len(values) != n:

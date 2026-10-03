@@ -3,7 +3,8 @@
 Layout (one directory per world under ``<root>/<tier>/<world_id>/``)::
 
     card.json         public WorldCard
-    pool.parquet      patient_id, stratum, outcome, then one column per feature (card order)
+    pool.parquet      patient_id, stratum, outcome, time (survival worlds only), then one column
+                      per feature (card order)
     queues.json       recruitment order per stratum
     answer_key.json   present only for public-train worlds
 
@@ -47,6 +48,8 @@ def write_world(root: Path, world: WorldData, key: AnswerKey | None, *, keys_dir
 
 def _write_into(tmp: Path, world: WorldData, key: AnswerKey | None, keys_dir: Path | None) -> None:
     frame = pd.DataFrame(world.x, columns=list(world.card.feature_ids()))
+    if world.time is not None:
+        frame.insert(0, "time", world.time)
     frame.insert(0, "outcome", world.y)
     frame.insert(0, "stratum", list(world.stratum))
     frame.insert(0, "patient_id", list(world.patient_ids))
@@ -66,18 +69,30 @@ def _write_into(tmp: Path, world: WorldData, key: AnswerKey | None, keys_dir: Pa
 def read_world(directory: Path) -> WorldData:
     card = WorldCard.model_validate_json((directory / "card.json").read_text())
     frame = pd.read_parquet(directory / "pool.parquet")
-    if tuple(frame.columns[:3]) != _RESERVED or tuple(frame.columns[3:]) != card.feature_ids():
+    reserved = _RESERVED + (("time",) if card.outcome_type == "survival" else ())
+    k = len(reserved)
+    if tuple(frame.columns[:k]) != reserved or tuple(frame.columns[k:]) != card.feature_ids():
         raise ValueError(f"pool columns in {directory} do not match the world card")
-    queues = {
-        k: tuple(int(i) for i in v) for k, v in json.loads((directory / "queues.json").read_text()).items()
-    }
+    if not frame["outcome"].isin((0, 1)).all():
+        raise ValueError("outcome values must be binary before integer conversion")
+    if not all(isinstance(v, str) and v for v in frame["patient_id"]):
+        raise ValueError("patient identifiers must be nonempty strings")
+    if not all(isinstance(v, str) and v for v in frame["stratum"]):
+        raise ValueError("stratum identifiers must be nonempty strings")
+    raw_queues = json.loads((directory / "queues.json").read_text())
+    if not isinstance(raw_queues, dict) or any(
+        not isinstance(q, list) or any(type(i) is not int for i in q) for q in raw_queues.values()
+    ):
+        raise ValueError("recruitment queues must contain integer row indices")
+    queues = {k: tuple(v) for k, v in raw_queues.items()}
     return WorldData(
         card=card,
         patient_ids=tuple(str(v) for v in frame["patient_id"]),
-        x=frame.iloc[:, 3:].to_numpy(dtype=np.float64),
+        x=frame.iloc[:, k:].to_numpy(dtype=np.float64),
         y=frame["outcome"].to_numpy(dtype=np.int64),
         stratum=tuple(str(v) for v in frame["stratum"]),
         queues=queues,
+        time=frame["time"].to_numpy(dtype=np.float64) if card.outcome_type == "survival" else None,
     )
 
 

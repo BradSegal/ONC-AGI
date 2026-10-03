@@ -10,6 +10,7 @@ import pytest
 from arena_factories import fid, group, make_card, make_key, part
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.schema import CreditRule, ErrorCode, GroupLabel
+from onc_agi.services import scoring
 from onc_agi.services.scoring import score_world
 
 CARD = make_card(n_features=10)
@@ -96,15 +97,51 @@ def test_exact_credit_falls_back_to_group_credit_when_exact_is_unrecoverable() -
     assert score_world([fid(6)], key, chance=NO_CHANCE).find_exact == 1.0
 
 
-def test_credit_is_one_to_one_in_list_order() -> None:
-    """Each representative credits the first uncredited group containing it.
+def test_credit_is_one_to_one_by_maximum_matching_by_default() -> None:
+    """D12 provisional default: the top R are matched to parts to maximise credit,
+    so [f01, f00] and [f00, f01] both credit both groups."""
+    assert scoring.CREDIT_ORDER == "max_matching"
+    key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1))))
+    assert score_world([fid(1), fid(0)], key, chance=NO_CHANCE).raw_recovery == 1.0
+    assert score_world([fid(0), fid(1)], key, chance=NO_CHANCE).raw_recovery == 1.0
 
-    The greedy rule is order-dependent: [f01, f00] credits only g0, while [f00, f01]
-    credits both groups.
-    """
+
+def test_greedy_credit_order_remains_selectable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The greedy alternative: each representative credits the first uncredited group containing it,
+    so [f01, f00] credits only g0, while [f00, f01] credits both groups."""
+    monkeypatch.setattr(scoring, "CREDIT_ORDER", "greedy")
     key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1))))
     assert score_world([fid(1), fid(0)], key, chance=NO_CHANCE).raw_recovery == 0.5
     assert score_world([fid(0), fid(1)], key, chance=NO_CHANCE).raw_recovery == 1.0
+
+
+def test_matching_does_not_depend_on_hidden_group_order() -> None:
+    """Greedy credit depended on the order of groups in the private key; matching does not."""
+    a = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1), fid(2))))
+    b = key_with(group("g1", part(fid(1), fid(2))), group("g0", part(fid(0), fid(1))))
+    for ranking in ([fid(1), fid(0)], [fid(1), fid(2)], [fid(2), fid(1)]):
+        assert (
+            score_world(ranking, a, chance=NO_CHANCE).raw_recovery
+            == score_world(ranking, b, chance=NO_CHANCE).raw_recovery
+            == 1.0
+        )
+
+
+def test_matching_prefers_exact_credit_when_raw_credit_ties() -> None:
+    """A substitute and its true feature both in the top R: the true feature takes the part
+    (greedy gave the slot to the substitute listed first, and Strict nothing)."""
+    key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(5))))
+    score = score_world([fid(1), fid(0)], key, chance=NO_CHANCE)
+    assert (score.raw_recovery, score.find_exact) == (0.5, 0.5)
+
+
+def test_matching_respects_joint_groups() -> None:
+    """f01 can stand in for g0's only part or complete the interaction; matching completes both."""
+    key = key_with(
+        group("g0", part(fid(0), fid(1))),
+        group("i0", part(fid(1)), part(fid(2)), role="interaction", rule=CreditRule.JOINT),
+    )
+    assert score_world([fid(1), fid(2), fid(0)], key, chance=NO_CHANCE).raw_recovery == 1.0
 
 
 def test_one_feature_cannot_credit_two_groups() -> None:

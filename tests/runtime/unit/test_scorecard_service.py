@@ -7,8 +7,35 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from arena_factories import InMemoryStore, fid, planted_world
 from onc_agi.core.errors import ArenaError
-from onc_agi.core.schema import ErrorCode, Recruit, Reset, Submit, Tier, TraceEvent
-from onc_agi.services.scorecards import PRIVATE_TOTAL_CAP, PUBLIC_EVAL_DAILY_CAP, ScorecardService
+from onc_agi.core.schema import ErrorCode, Mode, Recruit, Reset, Submit, Tier, TraceEvent
+from onc_agi.services.scorecards import (
+    PRIVATE_TOTAL_CAP,
+    PUBLIC_EVAL_DAILY_CAP,
+    ScorecardService,
+    key_digest,
+)
+
+
+@pytest.mark.parametrize("tier", [Tier.PUBLIC_EVAL, Tier.PRIVATE])
+@pytest.mark.parametrize("n_worlds", [1, 2, 39])
+def test_default_evaluation_minimum_refuses_small_draws_without_consumption(
+    tier: Tier, n_worlds: int
+) -> None:
+    ledger = DictLedger()
+    svc = ScorecardService(tiered_store(), ledger)
+    with pytest.raises(ArenaError) as err:
+        svc.open("owner-key", agent="a", track="open", tier=tier, n_worlds=n_worlds)
+    assert err.value.code is ErrorCode.INVALID_PAYLOAD
+    assert ledger.used_ids == {} and ledger.opened == {}
+
+
+def test_evaluation_minimum_is_an_operator_setting_and_training_stays_useful() -> None:
+    svc = ScorecardService(tiered_store(), DictLedger(), min_eval_worlds=5)
+    _, cards = svc.open("owner-key", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=5)
+    assert len(cards) == 5
+    train = ScorecardService(tiered_store(), DictLedger())
+    _, cards = train.open("owner-key", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+    assert len(cards) == 1
 
 
 class DictLedger:
@@ -58,6 +85,7 @@ def tiered_store(n: int = 10) -> InMemoryStore:
 
 
 def service(store: InMemoryStore | None = None, **kw: object) -> tuple[ScorecardService, DictLedger, Clock]:
+    kw.setdefault("min_eval_worlds", 1)  # synthetic fixtures deliberately exercise small draws
     ledger, clock = DictLedger(), Clock()
     return ScorecardService(store or tiered_store(), ledger, clock, **kw), ledger, clock  # type: ignore[arg-type]
 
@@ -205,3 +233,112 @@ def test_eval_draws_keep_the_fixed_null_share() -> None:
         _sid, cards = svc.open(f"key-{k:04d}", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=10)
         shares.append(sum(store.answer_key(c.world_id).is_null for c in cards))
     assert shares == [2] * 5
+
+
+# ---------------------------------------------------------------- ownership and records
+
+
+def _refusal(call) -> tuple[ErrorCode, str]:  # type: ignore[no-untyped-def]
+    with pytest.raises(ArenaError) as err:
+        call()
+    return err.value.code, err.value.message
+
+
+def test_a_foreign_key_is_told_exactly_what_an_unknown_id_is_told() -> None:
+    svc, _, _ = service()
+    sid, cards = svc.open("key-owner", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+    wid = cards[0].world_id
+    reset = Reset(request_id="r", world_id=wid)
+    for call in (
+        lambda s: svc.act(s, wid, reset, api_key="key-thief"),
+        lambda s: svc.episode(s, wid, api_key="key-thief"),
+        lambda s: svc.view(s, wid, api_key="key-thief"),
+        lambda s: svc.close(s, api_key="key-thief"),
+        lambda s: svc.scorecard(s, api_key="key-thief"),
+    ):
+        code, message = _refusal(lambda c=call: c(sid))
+        ghost_code, ghost_message = _refusal(lambda c=call: c("sc-ghost"))
+        assert code is ghost_code is ErrorCode.INVALID_PAYLOAD
+        assert message.replace(sid, "?") == ghost_message.replace("sc-ghost", "?")
+    assert svc.act(sid, wid, reset, api_key="key-owner").step == 1  # untouched by the attempts
+    assert svc.act(sid, wid, Submit(request_id="s", ranking=()), api_key=None).step == 2  # trusted path
+
+
+def test_the_owner_digest_is_stored_never_the_raw_key() -> None:
+    svc, _, _ = service()
+    sid, _ = svc.open("key-secret-123", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+    owner = svc._open[sid].owner
+    assert owner == key_digest("key-secret-123") and "key-secret-123" not in owner
+
+
+def test_the_closed_scorecard_is_on_record_and_an_open_one_is_refused() -> None:
+    svc, _, _ = service()
+    sid, _ = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=2)
+    with pytest.raises(ArenaError) as err:
+        svc.scorecard(sid, api_key="key-aaaa")
+    assert err.value.code is ErrorCode.ACTION_NOT_AVAILABLE
+    closed = svc.close(sid, api_key="key-aaaa")
+    assert svc.scorecard(sid, api_key="key-aaaa") == closed == svc.scorecard(sid)
+    assert closed.worlds == ()  # the record keeps eval exposure
+
+
+def test_close_passes_run_metadata_and_records_oracle_versions() -> None:
+    svc, _, _ = service()
+    sid, _ = svc.open("key-aaaa", agent="a", track="standard", tier=Tier.PUBLIC_TRAIN, n_worlds=2)
+    closed = svc.close(sid, model="m-1", harness="inspect/0.1", tokens=1200, cost_usd=0.25)
+    assert (closed.model, closed.harness, closed.tokens, closed.cost_usd) == (
+        "m-1",
+        "inspect/0.1",
+        1200,
+        0.25,
+    )
+    assert closed.versions["oracle"] == "test"
+
+
+def test_open_can_restrict_the_draw_to_one_mode() -> None:
+    store = InMemoryStore()
+    for tier in (Tier.PUBLIC_TRAIN, Tier.PUBLIC_EVAL):
+        for i in range(12):
+            mode = Mode.SEQUENTIAL if i % 2 else Mode.FULL_ACCESS
+            wid = f"{tier.value.replace('_', '-')}-{i:02d}"
+            store.add(*planted_world(wid, signal=i % 4 > 1, seed=i, n_pool=60, tier=tier, mode=mode))
+    svc, _, _ = service(store)
+    for tier in (Tier.PUBLIC_TRAIN, Tier.PUBLIC_EVAL):
+        for mode in Mode:
+            _, cards = svc.open(
+                f"key-{mode.value}", agent="a", track="open", tier=tier, n_worlds=3, mode=mode
+            )
+            assert len(cards) == 3 and {c.mode for c in cards} == {mode}
+    _, cards = svc.open("key-any", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=12)
+    assert {c.mode for c in cards} == set(Mode)
+
+
+def test_abandoned_scorecards_expire_after_the_ttl() -> None:
+    svc, _, clock = service(ttl=timedelta(hours=2))
+    stale, cards = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=2)
+    played = cards[0].world_id
+    svc.act(stale, played, Submit(request_id="s", ranking=(fid(0),)))
+    clock.now += timedelta(hours=1)
+    fresh, _ = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+    clock.now += timedelta(hours=1, seconds=1)
+    with pytest.raises(ArenaError) as err:  # the sweep runs first, so the stale scorecard is closed
+        svc.act(stale, played, Reset(request_id="r", world_id=played))
+    assert err.value.code is ErrorCode.SCORECARD_CLOSED and "expired" in err.value.message
+    expired = svc.scorecard(stale)
+    by_world = {w.world_id: w for w in expired.worlds}
+    assert by_world[played].listed == 1 and by_world[cards[1].world_id].abstained
+    with pytest.raises(ArenaError) as err:  # the younger scorecard is still within its TTL
+        svc.scorecard(fresh)
+    assert err.value.code is ErrorCode.ACTION_NOT_AVAILABLE
+
+
+def test_ttl_must_be_positive() -> None:
+    with pytest.raises(ValueError):
+        service(ttl=timedelta(0))
+
+
+def test_a_ledger_without_a_lock_is_still_accepted() -> None:
+    svc, ledger, _ = service()
+    assert not hasattr(ledger, "lock")
+    svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=2)
+    assert len(ledger.used(Tier.PUBLIC_EVAL)) == 2

@@ -1097,7 +1097,7 @@ wheels = [
 
 [[package]]
 name = "onc-agi"
-version = "1.0.0rc2"
+version = "1.0.0rc3"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -1142,7 +1142,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2,<3" },
     { name = "pyarrow", specifier = ">=16" },
     { name = "pydantic", specifier = ">=2.8,<3" },
-    { name = "scikit-learn", specifier = ">=1.6,<2" },
+    { name = "scikit-learn", specifier = ">=1.8,<2" },
     { name = "scipy", specifier = ">=1.14,<2" },
     { name = "statsmodels", specifier = ">=0.14,<0.16" },
     { name = "uvicorn", specifier = ">=0.30" },

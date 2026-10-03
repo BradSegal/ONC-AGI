@@ -1,4 +1,4 @@
-"""The ``arena`` command in-process: exit codes and outputs that harness authors script against."""
+"""The ``onc-agi`` command in-process: exit codes and outputs that harness authors script against."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from arena_factories import planted_world
 from onc_agi.adapters import cli
-from onc_agi.core.schema import Mode
+from onc_agi.core.schema import Mode, Tier
 from onc_agi.infra.bundles import write_world
 
 
@@ -84,6 +84,40 @@ def test_conformance_reports_every_check(
     report = json.loads(capsys.readouterr().out)
     assert code == 0 and report["ok"] is True
     assert "resume_returns_same_state" in report["checks"]
+    assert {"restart_restores_open_scorecard", "foreign_key_refused_like_unknown_id[close]"} <= set(
+        report["checks"]
+    )
+    assert (tmp_path / "ledger.archive" / "closed").is_dir()  # default archive sits beside the ledger
+
+
+def test_serve_accepts_archive_and_ttl_flags(
+    small_store: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import uvicorn
+
+    served: dict[str, object] = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: served.update(app=app, port=port))
+    base = ["serve", "--store", str(small_store), "--ledger", str(tmp_path / "l.json"), "--port", "9"]
+    assert cli.main([*base, "--archive", str(tmp_path / "arch"), "--ttl-hours", "0.5"]) == 0
+    assert served["port"] == 9 and (tmp_path / "arch" / "open").is_dir()
+    assert cli.main([*base, "--ttl-hours", "0"]) == 0 and (tmp_path / "l.archive").is_dir()
+    assert cli.main([*base, "--ttl-hours", "-1"]) == 2
+
+
+def test_serve_refuses_eval_worlds_without_issued_keys(
+    small_store: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import uvicorn
+
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: None)
+    world, key = planted_world("e-00", signal=True, seed=9, n_pool=80, tier=Tier.PUBLIC_EVAL)
+    write_world(small_store, world, key, keys_dir=tmp_path / "answer-keys")
+    base = ["serve", "--store", str(small_store), "--ledger", str(tmp_path / "l.json")]
+    assert cli.main(base) == 2
+    keys = tmp_path / "keys.txt"
+    keys.write_text("issued-key\n")
+    assert cli.main([*base, "--api-keys", str(keys)]) == 0
+    assert cli.main([*base, "--allow-unissued-keys"]) == 0
 
 
 def test_unknown_agents_are_rejected_by_the_parser(small_store: Path) -> None:

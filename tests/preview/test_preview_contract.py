@@ -46,11 +46,13 @@ def test_malformed_actions_fail_schema_validation(bad: dict[str, object]) -> Non
         jsonschema.validate(bad, schema("ActionEnvelope.schema.json"))
 
 
-def test_openapi_lists_the_five_endpoints() -> None:
+def test_openapi_lists_the_seven_endpoints() -> None:
     paths = set(schema("openapi.json")["paths"])  # type: ignore[arg-type]
     assert paths == {
         "/v1/health",
+        "/v1/worlds",  # rc3: public-train world listing (additive)
         "/v1/scorecards",
+        "/v1/scorecards/{sid}",  # rc3: the closed scorecard on record (additive)
         "/v1/scorecards/{sid}/worlds/{wid}/actions",
         "/v1/scorecards/{sid}/worlds/{wid}",
         "/v1/scorecards/{sid}/close",

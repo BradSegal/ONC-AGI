@@ -1,0 +1,32 @@
+# Model profiles for `onc-agi play --agent llm --profile NAME` (adapters/profiles.py).
+# Copy this file to ./profiles.toml to edit it, or pass --profiles PATH.
+# Keys never live here: each profile names the environment variable that holds its key,
+# read from the environment or a git-ignored .env in the working directory.
+# Override any parameter at run time: --set temperature=0.2 --set extra_body.reasoning='{effort="high"}'
+
+[profiles.openrouter-luna]
+description = "OpenRouter: provider-reported cost (usage.cost), reasoning summaries recorded"
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+model = "openai/gpt-6-luna"
+# USD per million tokens; used only when the provider reports no cost
+prices_per_mtok = { input = 0.10, output = 0.50, cache_read = 0.01, cache_write = 0.125 }
+
+[profiles.openrouter-luna.generate]
+max_tokens = 16000
+
+[profiles.openrouter-luna.extra_body]
+usage = { include = true }
+reasoning = { effort = "medium", summary = "auto" }
+
+# A local OpenAI-compatible server: vLLM (`vllm serve MODEL --enable-auto-tool-choice
+# --tool-call-parser hermes`) on port 8000, or Ollama at http://localhost:11434/v1.
+# Local servers need no key, so api_key_env is omitted; no prices means cost is not reported.
+[profiles.local]
+description = "Local vLLM or Ollama server (template)"
+base_url = "http://localhost:8000/v1"
+model = "Qwen/Qwen3-8B"
+
+[profiles.local.generate]
+max_tokens = 8000
+temperature = 0.6

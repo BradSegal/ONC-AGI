@@ -18,7 +18,7 @@
   },
   "RevealedData": {
    "additionalProperties": false,
-   "description": "Columnar revealed data. Missing cells are ``None``.",
+   "description": "Columnar revealed data. Missing cells are ``None``.\n\nSurvival worlds: ``outcome`` is the event indicator (1 = event observed) and ``time`` the\nfollow-up in days (to the event or to censoring). ``time`` is omitted for binary worlds.",
    "properties": {
     "columns": {
      "additionalProperties": {
@@ -57,6 +57,21 @@
      },
      "title": "Stratum",
      "type": "array"
+    },
+    "time": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Time"
     }
    },
    "required": [

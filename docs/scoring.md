@@ -20,7 +20,7 @@ Scoring takes six steps.
 2. **Leak reject.** If any listed feature is in the reject set, the world scores Find 0 wherever the leak appears in the list, and the world counts toward Leak rate.
 3. **Representatives.** The list is reduced to its first-listed feature per cluster. Near-duplicates therefore neither earn extra credit nor use extra depth.
 4. **Neutral removal.** Members of neutral groups' equivalence sets are dropped. They neither earn credit nor use depth.
-5. **Credit at depth R.** The top R remaining representatives earn credit one to one, in list order. Each credits the first uncredited part whose equivalence set contains it. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Each group's credit rule then applies:
+5. **Credit at depth R.** The top R remaining representatives earn credit one to one. They are matched to parts so that the most parts are credited, and among equally good matchings the most are credited exactly. A representative can credit a part when it is in that part's equivalence set. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Credit therefore depends on which representatives reach the top R, not on their order inside it, nor on the private order of groups in the key. Each group's credit rule then applies:
    - `single`: one part, credited by any member of its equivalence set;
    - `joint` (interactions, modifiers, mixtures): all parts, or nothing;
    - `weighted_coverage` (modules): the covered share of absolute weights, times the number of parts.
@@ -254,7 +254,7 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["a", "a2", "b", "L"], "chance": [0.1, 0.05], "expect": {"leaked": true, "find": 0.0}}
 ```
 
-**Credit is greedy in list order when equivalence sets overlap**. `v` is equivalent to the true feature `u` and is also a true feature itself. Listing `v` first spends it on `u`'s part, and `u` then has no part left to credit. Maximum matching would credit both orders fully. The choice between the two rules is under review.
+**Overlapping equivalence sets are resolved by maximum matching**. `v` is equivalent to the true feature `u` and is also a true feature itself. Under the earlier greedy rule, listing `v` first spent it on `u`'s part, so `u` had no part left and the list scored 0.5. Maximum matching assigns `v` to its own part and `u` to `u`'s, so both orders earn full and exact credit. The greedy rule remains selectable (`CREDIT_ORDER = "greedy"`) for reproducing earlier scorecards.
 
 ```json scoring-world name=spec-overlap
 {
@@ -278,7 +278,14 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 ```
 
 ```json scoring-example world=spec-overlap
-{"ranking": ["v", "u"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 0.5, "find_exact": 0.0}}
+{"ranking": ["v", "u"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0, "find_exact": 1.0}}
+```
+
+**A substitute listed before its true feature no longer costs Strict credit.** In `spec-w`, `c` is oracle-equivalent to `b`. Listing `c` and then `b` puts both in the top R = 2. Only one can credit `b`'s part, and matching gives it to `b` itself, so Strict credits that part exactly: `find_exact = (0.5 − 0.05) / 0.95`. Raw credit is 0.5, because `a`'s part is not listed. Under greedy credit, `c` took the part and `find_exact` was 0.
+
+```json scoring-example world=spec-w
+{"ranking": ["c", "b"], "chance": [0.1, 0.05],
+ "expect": {"raw_recovery": 0.5, "find": 0.4444444444444445, "find_exact": 0.47368421052631576}}
 ```
 
 **Half an interaction earns nothing and still uses a slot**, unlike a module, where each member earns its share of the weight (compare `spec-module` above).
@@ -348,7 +355,7 @@ Over a set of worlds:
 - **Find** = mean over signal worlds of `find × efficiency`;
 - **Restraint** = (mean over null worlds of `restrained × efficiency`) − (abstention rate on signal worlds). This is Youden's J: always-empty and always-claiming agents both score 0;
 - **Discovery Score** = `Find × max(0, Restraint)`, which is the headline;
-- **unfloored** = `find_signed × Restraint`, made negative whenever either factor is negative. It is the estimand for intervals and release gates;
+- **unfloored** = `find_signed × Restraint`, made negative whenever either factor is negative. It is the estimand for the scorecard interval. The release gates test signed Find and Restraint separately;
 - **Strict** = the same with exact credit.
 
 Undefined values are `null`: Restraint without null worlds, and Find without signal worlds. The interval is a 2.5–97.5% percentile bootstrap of the unfloored score, resampling signal and null worlds separately. Per-tier rows put null worlds in the tier they inherited from their source world.
@@ -396,11 +403,11 @@ When the components have opposite or both-negative signs, the unfloored value is
 For lists whose top R representatives each fall into at most one part's equivalence set, raw recovery equals PyPlasmode's `evaluate_groups` group recall at depth R. The answer key maps to a `MaterializedTruth(kind="custom")` with one `RecoveryGroup` per part. This package does not itself depend on PyPlasmode. The arena extends PyPlasmode's evaluators in four ways:
 
 - partial lists, completed in a fixed, truth-blind order;
-- one-to-one credit, so a single feature cannot credit two parts;
+- one-to-one credit by maximum matching, so a single feature cannot credit two parts;
 - the `joint` rule;
 - matched chance normalisation.
 
-Strict never exceeds PyPlasmode's `evaluate_ranking` exact recall over the same top R. It equals that recall unless a substitute is listed before its true feature: under one-to-one credit the substitute takes the slot, so the later true feature earns nothing. PyPlasmode's `evaluate_module` gives the weighted coverage of a module part set. The agreement is checked by a property test maintained alongside the world builder.
+Strict never exceeds PyPlasmode's `evaluate_ranking` exact recall over the same top R. Under maximum matching it equals that recall when every listed substitute's true feature is also in the top R, because matching gives each part to its true feature where it can. Under the greedy alternative a substitute listed before its true feature took the slot, so the later true feature earned nothing. PyPlasmode's `evaluate_module` gives the weighted coverage of a module part set. The agreement is checked by a property test maintained alongside the world builder.
 
 ## 5. Latency envelope
 

@@ -1,4 +1,4 @@
-"""Consumer workflows through the ``arena`` command: smoke, evaluate+replay, conformance."""
+"""Consumer workflows through the ``onc-agi`` command: smoke, evaluate+replay, conformance."""
 
 from __future__ import annotations
 

@@ -1,0 +1,6 @@
+{
+ "label": "GPT 6 Luna",
+ "model": "openai/gpt-6-luna",
+ "harness": "Inspect standard track",
+ "provenance": "benchmark"
+}

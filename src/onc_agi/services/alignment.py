@@ -39,27 +39,39 @@ def oracle_analyst_ranking(
     """Ranking the oracle analyst submits from the given data (empty when nothing clears the threshold)."""
     index = {f: j for j, f in enumerate(feature_ids)}
     terms: list[tuple[str, NDArray[np.float64]]] = []
-    for group in key.recoverable:
+    # Score recoverable terms first; known neutral terms still belong in their nuisance models.
+    recoverable = key.recoverable
+    groups = list(recoverable) + [g for g in key.groups if g not in recoverable]
+    n_test = 0
+    for group in groups:
         feats = [p.true_feature for p in group.parts]
+        start = len(terms)
         if group.credit_rule is CreditRule.JOINT:
             if all(f in index for f in feats):
-                factors = [_factor(x[:, index[f]], group.role) for f in feats]
+                factors = [_factor(x[:, index[f]], group.role, factor_index=i) for i, f in enumerate(feats)]
                 terms.append(("|".join(feats), np.prod(np.column_stack(factors), axis=1)))
-            continue
-        terms.extend((f, x[:, index[f]]) for f in feats if f in index)
-    if not terms or len(y) < 10:
+        else:
+            terms.extend((f, x[:, index[f]]) for f in feats if f in index)
+        if group in recoverable:
+            n_test += len(terms) - start
+    if not n_test or len(y) < 10:
         return ()
     design = np.column_stack([t for _, t in terms])
     ok = ~np.isnan(design).any(axis=1)
     if ok.sum() < 10 or len(np.unique(y[ok])) < 2:
         return ()
-    z = _logit_z(design[ok], y[ok])
+    # Finite constant terms carry no information in this revealed subset; they are nondetections.
+    active = [i for i, column in enumerate(design[ok].T) if np.any(column != column[0])]
+    tested = [i for i in active if i < n_test]
+    if not tested:
+        return ()
+    z = _logit_z(design[ok][:, active], y[ok], n_test=len(tested))
     if z is None:
         return ()
     hits = sorted(
         (
-            (abs(float(zi)), name)
-            for (name, _), zi in zip(terms, z, strict=True)
+            (abs(float(zi)), terms[i][0])
+            for i, zi in zip(tested, z, strict=True)
             if abs(zi) > key.detection_threshold
         ),
         reverse=True,
@@ -70,23 +82,24 @@ def oracle_analyst_ranking(
     return tuple(ranking)
 
 
-def _factor(column: NDArray[np.float64], role: str) -> NDArray[np.float64]:
+def _factor(column: NDArray[np.float64], role: str, *, factor_index: int = 0) -> NDArray[np.float64]:
     """One factor of a product term, built as the generator builds it.
 
-    Measurements enter standardised; a binary indicator enters raw (effect modifier: the effect
-    exists in one group) or as -1/+1 (mixture: the effect reverses). Raw products of positive-mean
-    measurements are dominated by main effects and miss the planted term.
+    All measurements, including binary mutations, enter standardised. In effect-modifier and
+    mixture keys the second part is the clinical indicator, which enters raw or as -1/+1.
+    Generator answer order distinguishes that indicator from binary molecular measurements.
     """
-    values = column[~np.isnan(column)]
-    if values.size and set(np.unique(values)) <= {0.0, 1.0}:
+    if factor_index == 1 and role in {"effect_modifier", "mixture"}:
         return 2 * column - 1 if role == "mixture" else column
     sd = float(np.nanstd(column))
     return (column - np.nanmean(column)) / (sd if sd > 0 else 1.0)
 
 
-def _logit_z(design: NDArray[np.float64], y: NDArray[np.int64]) -> NDArray[np.float64] | None:
+def _logit_z(
+    design: NDArray[np.float64], y: NDArray[np.int64], *, n_test: int | None = None
+) -> NDArray[np.float64] | None:
     """The arena's detection statistic: signed score z of each term given the others."""
-    return logistic_score_z(list(design.T), y)
+    return logistic_score_z(list(design.T), y, n_test=n_test)
 
 
 def _utility(score: WorldScore) -> float:

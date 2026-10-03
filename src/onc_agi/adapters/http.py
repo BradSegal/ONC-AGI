@@ -1,20 +1,27 @@
 """Versioned HTTP interface: scorecards, actions and state over JSON.
 
-Endpoints (``X-Arena-Key`` header identifies the caller for caps)::
+Endpoints (every scorecard endpoint needs the ``X-Arena-Key`` header)::
 
     GET  /v1/health
     POST /v1/scorecards                                   open (fresh draw)
     POST /v1/scorecards/{sid}/worlds/{wid}/actions        apply one action
     GET  /v1/scorecards/{sid}/worlds/{wid}                current state (resume)
     POST /v1/scorecards/{sid}/close                       aggregate scorecard
+    GET  /v1/scorecards/{sid}                             the closed scorecard on record
 
+This adapter is the trust boundary: the key identifies the caller for caps and
+owns the scorecard it opened. Any other key gets the same error as an unknown id.
 Answer keys never leave the server; eval scorecards expose aggregates only.
 """
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +31,7 @@ from onc_agi.core.schema import (
     ActionEnvelope,
     ArenaErrorPayload,
     ErrorCode,
+    Mode,
     Observation,
     Scorecard,
     Tier,
@@ -50,8 +58,18 @@ class OpenRequest(BaseModel):
     agent: str = Field(min_length=1, max_length=96)
     track: str = "open"
     tier: Tier
-    n_worlds: int = Field(gt=0, le=10_000)
+    n_worlds: int | None = Field(default=None, gt=0, le=10_000)
+    world_ids: tuple[str, ...] | None = Field(
+        default=None, min_length=1, max_length=10_000, description="Named worlds (public train only)."
+    )
+    mode: Mode | None = Field(default=None, description="Restrict the worlds to one mode.")
     tags: tuple[str, ...] = ()
+
+
+class WorldList(BaseModel):
+    interface_version: str = INTERFACE_VERSION
+    tier: Tier
+    cards: tuple[WorldCard, ...]
 
 
 class OpenResponse(BaseModel):
@@ -61,7 +79,16 @@ class OpenResponse(BaseModel):
 
 
 def create_app(service: ScorecardService) -> FastAPI:
-    app = FastAPI(title="ONC-AGI", version=INTERFACE_VERSION)
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            service.shutdown()
+
+    app = FastAPI(title="ONC-AGI", version=INTERFACE_VERSION, lifespan=lifespan)
+    # observations carry every revealed value (hundreds of KiB); they compress about tenfold
+    app.add_middleware(GZipMiddleware, minimum_size=2048)
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -91,21 +118,31 @@ def create_app(service: ScorecardService) -> FastAPI:
             tier=body.tier,
             n_worlds=body.n_worlds,
             tags=body.tags,
+            mode=body.mode,
+            world_ids=body.world_ids,
         )
         return OpenResponse(scorecard_id=sid, cards=cards)
+
+    @app.get("/v1/worlds")
+    def list_worlds(tier: Tier = Tier.PUBLIC_TRAIN, x_arena_key: str = Header(min_length=8)) -> WorldList:
+        return WorldList(tier=tier, cards=service.list_worlds(tier))
 
     @app.post("/v1/scorecards/{sid}/worlds/{wid}/actions")
     def act(sid: str, wid: str, body: ActionEnvelope, x_arena_key: str = Header(min_length=8)) -> Observation:
         view = service.act(sid, wid, body.action, api_key=x_arena_key)
-        return view.to_observation(service.episode(sid, wid, api_key=x_arena_key).world.patient_ids)
+        return view.to_observation(service.store.world(wid).patient_ids)
 
     @app.get("/v1/scorecards/{sid}/worlds/{wid}")
     def state(sid: str, wid: str, x_arena_key: str = Header(min_length=8)) -> Observation:
-        episode = service.episode(sid, wid, api_key=x_arena_key)
-        return episode.view().to_observation(episode.world.patient_ids)
+        view = service.view(sid, wid, api_key=x_arena_key)
+        return view.to_observation(service.store.world(wid).patient_ids)
 
     @app.post("/v1/scorecards/{sid}/close")
     def close(sid: str, x_arena_key: str = Header(min_length=8)) -> Scorecard:
         return service.close(sid, api_key=x_arena_key)
+
+    @app.get("/v1/scorecards/{sid}")
+    def scorecard(sid: str, x_arena_key: str = Header(min_length=8)) -> Scorecard:
+        return service.scorecard(sid, api_key=x_arena_key)
 
     return app

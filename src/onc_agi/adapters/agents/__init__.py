@@ -22,6 +22,7 @@ BASELINES: dict[str, Analyst] = {
     "stability": baselines.stability_selection,
     "random_forest": baselines.random_forest,
     "knockoffs": baselines.knockoffs,
+    "forward_score": baselines.forward_score,
 }
 
 CHEATERS: dict[str, Analyst] = {

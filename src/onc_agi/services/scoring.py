@@ -7,9 +7,12 @@ Per world:
    (first occurrence wins).
 3. Members of *neutral* groups' equivalence sets are removed: they neither earn
    credit nor use depth.
-4. The top ``R`` remaining representatives earn credit one-to-one, in list order:
-   each credits the first uncredited part whose equivalence set contains it. An
-   interaction group counts only when both of its parts are credited.
+4. The top ``R`` remaining representatives earn credit one-to-one. Under the
+   default, ``CREDIT_ORDER = "max_matching"``, the
+   assignment of representatives to parts is the one that maximises raw credit, then
+   exact credit, so credit depends neither on the order of the top R nor on the
+   hidden group order; ``"greedy"`` credits the first uncredited part, in list
+   order. An interaction group counts only when both of its parts are credited.
 5. Recovery is chance-normalised against a *matched* random list pushed through the
    same pipeline - each listed feature replaced by a random feature of its stratum: ``q = clip((raw - chance) / (1 - chance), 0, 1)``.
 
@@ -18,8 +21,7 @@ Across worlds:
 * ``Find = mean over signal worlds of q * efficiency``
 * ``Restraint = mean over null worlds of restrained * efficiency - abstention rate on signal worlds``
   (Youden's J, unfloored for statistics)
-* ``Discovery Score = Find * max(0, Restraint)`` for display; the unfloored product
-  drives intervals and gates.
+* ``Discovery Score = Find * max(0, Restraint)`` for display; the unfloored estimand drives intervals.
 """
 
 from __future__ import annotations
@@ -27,6 +29,8 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -46,8 +50,31 @@ from onc_agi.core.schema import (
 
 CHANCE_DRAWS = 200
 BOOTSTRAP_DRAWS = 1000
-SCORER_VERSION = "scorer-1.0"
-ENGINE_VERSION = "engine-1.0"
+
+
+def _source_label(module: str) -> str:
+    """First 8 hex digits of a sibling module's bytes, so any edit to the rules changes the label."""
+    return hashlib.sha256((Path(__file__).parent / module).read_bytes()).hexdigest()[:8]
+
+
+# The base names the interface generation; the suffix pins the exact code, so scorecards from
+# different rule sets are never compared as if equal (a hand-maintained label went stale).
+SCORER_VERSION = f"scorer-1.0+{_source_label('scoring.py')}"
+ENGINE_VERSION = f"engine-1.0+{_source_label('engine.py')}"
+
+# Statistical rules adopted for 1.0. Each alternative stays selectable so that
+# earlier scorecards can be reproduced.
+CreditOrder = Literal["max_matching", "greedy"]
+UnflooredRule = Literal["sign_guard", "product", "min_guard"]
+# D12: assignment of the top-R representatives to parts. "max_matching" maximises (raw, exact)
+# credit over one-to-one assignments, so neither list order inside the top R nor the hidden order of
+# groups in the key moves the score; "greedy" is the earlier first-uncredited-part rule in list order.
+CREDIT_ORDER: CreditOrder = "max_matching"
+# D21: the statistical estimand from signed Find F and unfloored Restraint J.
+# "sign_guard": F*J, but -|F*J| whenever either is negative. "product": F*J.
+# "min_guard": F*J when both are non-negative, else min(F, J) (monotone in both components).
+UNFLOORED_RULE: UnflooredRule = "sign_guard"
+MATCHING_LIMIT = 50_000  # assignments searched before falling back to greedy (never reached in practice)
 
 
 def stable_seed(*parts: str) -> int:
@@ -101,19 +128,83 @@ def _top_representatives(
     return out
 
 
-def _credit(top: Sequence[str], key: AnswerKey) -> _Credit:
-    """One-to-one credit in list order, then each group's credit rule."""
-    depth = key.depth
-    if depth == 0:
-        return _Credit(0.0, 0.0)
+Slot = tuple[int, int]  # (recoverable group index, part index)
+
+
+def _greedy_assignment(top: Sequence[str], key: AnswerKey) -> dict[Slot, bool]:
+    """Greedy credit: each representative credits the first uncredited part containing it, in list order."""
     parts = [(gi, pi, part) for gi, g in enumerate(key.recoverable) for pi, part in enumerate(g.parts)]
-    credited: dict[tuple[int, int], bool] = {}  # (group, part) -> exact?
+    credited: dict[Slot, bool] = {}  # (group, part) -> exact?
     for feature in top:
         for gi, pi, part in parts:
             if (gi, pi) in credited or feature not in part.equivalence_set:
                 continue
             credited[(gi, pi)] = feature == part.true_feature or not part.exact_recoverable
             break
+    return credited
+
+
+def _matching_assignment(top: Sequence[str], key: AnswerKey) -> dict[Slot, bool]:
+    """D12 maximum matching: the one-to-one assignment of representatives to parts with the most raw
+    credit, then the most exact credit (group rules applied), independent of list and group order.
+
+    Only representatives eligible for some part branch, and a representative eligible for exactly one
+    part that no other representative can take is assigned directly, so the search is trivial unless
+    equivalence sets overlap.
+    """
+    recoverable = key.recoverable
+    eligible: list[tuple[str, list[tuple[Slot, bool]]]] = []
+    for feature in top:
+        options = [
+            ((gi, pi), feature == part.true_feature or not part.exact_recoverable)
+            for gi, g in enumerate(recoverable)
+            for pi, part in enumerate(g.parts)
+            if feature in part.equivalence_set
+        ]
+        if options:
+            eligible.append((feature, options))
+    claims: dict[Slot, int] = {}
+    for _, options in eligible:
+        for slot, _exact in options:
+            claims[slot] = claims.get(slot, 0) + 1
+    fixed: dict[Slot, bool] = {}
+    contested: list[list[tuple[Slot, bool]]] = []
+    for _, options in eligible:
+        if len(options) == 1 and claims[options[0][0]] == 1:
+            fixed[options[0][0]] = options[0][1]
+        else:
+            contested.append(options)
+    if not contested:
+        return fixed
+    best: tuple[float, float] = (-1.0, -1.0)
+    best_assignment: dict[Slot, bool] = dict(fixed)
+    searched = 0
+
+    def search(i: int, current: dict[Slot, bool]) -> None:
+        nonlocal best, best_assignment, searched
+        searched += 1
+        if searched > MATCHING_LIMIT:
+            return
+        if i == len(contested):
+            value = _group_credit(current, key)
+            if value > best:
+                best, best_assignment = value, dict(current)
+            return
+        for slot, exact in contested[i]:
+            if slot not in current:
+                current[slot] = exact
+                search(i + 1, current)
+                del current[slot]
+        search(i + 1, current)  # this representative credits nothing
+
+    search(0, dict(fixed))
+    if searched > MATCHING_LIMIT:
+        return _greedy_assignment(top, key)
+    return best_assignment
+
+
+def _group_credit(credited: dict[Slot, bool], key: AnswerKey) -> tuple[float, float]:
+    """(raw, exact) credited slots after each group's credit rule (before dividing by R)."""
     raw = 0.0
     exact = 0.0
     for gi, g in enumerate(key.recoverable):
@@ -127,6 +218,17 @@ def _credit(top: Sequence[str], key: AnswerKey) -> _Credit:
         elif all(h is not None for h in hits):
             raw += len(g.parts)
             exact += sum(1 for h in hits if h)
+    return raw, exact
+
+
+def _credit(top: Sequence[str], key: AnswerKey, order: CreditOrder | None = None) -> _Credit:
+    """One-to-one credit (``CREDIT_ORDER``), then each group's credit rule."""
+    depth = key.depth
+    if depth == 0:
+        return _Credit(0.0, 0.0)
+    rule = CREDIT_ORDER if order is None else order
+    credited = _greedy_assignment(top, key) if rule == "greedy" else _matching_assignment(top, key)
+    raw, exact = _group_credit(credited, key)
     return _Credit(raw / depth, exact / depth)
 
 
@@ -267,6 +369,17 @@ def score_world(
     )
 
 
+def unfloored_estimate(find_signed: float, restraint: float, rule: UnflooredRule | None = None) -> float:
+    """The statistical estimand from signed Find and unfloored Restraint."""
+    chosen = UNFLOORED_RULE if rule is None else rule
+    product = find_signed * restraint
+    if chosen == "product" or not (find_signed < 0 or restraint < 0):
+        return product  # NaN propagates
+    if chosen == "min_guard":
+        return min(find_signed, restraint)
+    return -abs(product)
+
+
 @dataclass(frozen=True)
 class Components:
     find: float
@@ -283,11 +396,10 @@ class Components:
     def unfloored(self) -> float:
         """Statistical estimand: signed Find x unfloored Restraint (at most zero in expectation for blind agents).
 
-        The product is negative whenever either component is: two below-chance
-        components must not multiply into an above-floor score.
+        Under ``UNFLOORED_RULE = "sign_guard"`` the product is negative whenever either component
+        is: two below-chance components must not multiply into an above-floor score.
         """
-        product = self.find_signed * self.restraint
-        return -abs(product) if self.find_signed < 0 or self.restraint < 0 else product
+        return unfloored_estimate(self.find_signed, self.restraint)
 
     @property
     def displayed(self) -> float:

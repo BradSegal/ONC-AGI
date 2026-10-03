@@ -19,7 +19,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from onc_agi.core.digest import canonical_sha256
-from onc_agi.core.ports import TraceSink, WorldStore
+from onc_agi.core.errors import ArenaError
+from onc_agi.core.ports import RecordingKind, RecordingSink, TraceSink, WorldStore
 from onc_agi.core.schema import (
     Action,
     Assay,
@@ -41,10 +42,32 @@ from onc_agi.services.engine import Episode, EpisodeView
 MAX_STEPS = 10_000
 
 
+class EndEpisode(Exception):
+    """Raised by :meth:`Agent.choose_action` to stop a world without submitting (it scores as empty)."""
+
+
+@dataclass(frozen=True)
+class Usage:
+    """What an agent reports having spent on its current world (LLM agents)."""
+
+    tokens: int
+    cost_usd: float | None = None
+    model: str | None = None
+
+
 class Agent(ABC):
-    """Base agent. Subclasses implement :meth:`choose_action`."""
+    """Base agent. Subclasses implement :meth:`choose_action`.
+
+    Optional hooks used by the swarm runner (``adapters/swarm.py``); the defaults keep
+    :func:`run_episode` and :func:`evaluate` unchanged:
+
+    * ``recorder`` receives the agent's own transcript through :meth:`record`;
+    * :meth:`on_refused` is told when the arena refuses an action (the default re-raises);
+    * :meth:`usage` reports tokens and cost; :meth:`close` releases per-world resources.
+    """
 
     name: str = "agent"
+    recorder: RecordingSink | None = None
 
     def __init__(self) -> None:
         self._ids = itertools.count()
@@ -58,6 +81,29 @@ class Agent(ABC):
     def is_done(self, view: EpisodeView) -> bool:
         return view.status is EpisodeStatus.SUBMITTED
 
+    def record(
+        self,
+        world_id: str,
+        kind: RecordingKind,
+        content: str,
+        *,
+        tool: str | None = None,
+        error: bool = False,
+    ) -> None:
+        """Emit one recording event, if a recorder is attached."""
+        if self.recorder is not None:
+            self.recorder.event(world_id, kind, content, tool=tool, error=error)
+
+    def on_refused(self, action: Action, error: ArenaError) -> None:
+        """The arena refused ``action``; the episode is unchanged. Re-raise to end the world."""
+        raise error
+
+    def usage(self) -> Usage | None:
+        return None
+
+    def close(self) -> None:  # noqa: B027 - an optional hook: most agents hold nothing per world
+        """Release per-world resources (sandboxes, connections)."""
+
 
 @dataclass(frozen=True)
 class AnalysisInput:
@@ -66,8 +112,9 @@ class AnalysisInput:
     card: WorldCard
     feature_ids: tuple[str, ...]
     x: NDArray[np.float64]
-    y: NDArray[np.int64]
+    y: NDArray[np.int64]  # survival worlds: the event indicator
     stratum: tuple[str, ...]
+    time: NDArray[np.float64] | None = None  # survival worlds: follow-up in days
 
 
 Analyst = Callable[[AnalysisInput], Sequence[str]]
@@ -81,6 +128,7 @@ def analysis_input(card: WorldCard, view: EpisodeView) -> AnalysisInput:
         x=view.x[:, cols],
         y=view.outcome,
         stratum=view.stratum,
+        time=view.time,
     )
 
 
@@ -130,6 +178,8 @@ def view_digest(view: EpisodeView) -> str:
     )
     h.update(np.ascontiguousarray(np.nan_to_num(view.x, nan=-9.87654321e300)).tobytes())
     h.update(np.ascontiguousarray(view.outcome).tobytes())
+    if view.time is not None:  # binary digests are unchanged
+        h.update(np.ascontiguousarray(view.time).tobytes())
     return h.hexdigest()
 
 

@@ -3,6 +3,11 @@
 Every honest baseline ignores ``post_outcome`` features (standard practice) and
 returns an ordered list with an explicit empty-list rule, so it can abstain.
 Tuning uses only the data revealed in the episode (never eval or private truth).
+
+Survival worlds (``AnalysisInput.time`` present) are analysed with Cox models where the
+method has a Cox form: :func:`univariate_bh` uses the Cox score (log-rank-type) test and
+:func:`forward_score` selects with Cox score tests. The penalised and tree baselines analyse
+the event indicator as a binary outcome there, which is valid but discards follow-up time.
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 
 from onc_agi.core.schema import Timing
 from onc_agi.services.kit import AnalysisInput
+from onc_agi.services.score_test import candidate_score_z
 from onc_agi.services.scoring import stable_seed
 
 log = logging.getLogger(__name__)
@@ -47,18 +53,63 @@ def _usable(data: AnalysisInput, x: NDArray[np.float64]) -> bool:
     )
 
 
+def _cox_score_p(
+    x: NDArray[np.float64], time: NDArray[np.float64], y: NDArray[np.int64]
+) -> NDArray[np.float64]:
+    """Two-sided p of each column's marginal Cox score (log-rank-type) statistic, Breslow ties."""
+    z = candidate_score_z(x, [], y, time)
+    if z is None:
+        return np.ones(x.shape[1])
+    return np.asarray(2 * stats.norm.sf(np.abs(z)), dtype=float)
+
+
 def univariate_bh(data: AnalysisInput) -> list[str]:
-    """Wilcoxon rank-sum per feature, Benjamini-Hochberg at 5%; empty when nothing passes."""
+    """Wilcoxon rank-sum per feature (Cox score test on survival worlds), Benjamini-Hochberg at 5%.
+
+    Empty when nothing passes.
+    """
     ids, x = prepared(data)
     if not _usable(data, x):
         return []
     y = data.y.astype(bool)
-    p = np.array([stats.mannwhitneyu(x[y, j], x[~y, j]).pvalue for j in range(x.shape[1])])
+    if data.time is not None:
+        p = _cox_score_p(x, data.time, data.y)
+    else:
+        p = np.array([stats.mannwhitneyu(x[y, j], x[~y, j]).pvalue for j in range(x.shape[1])])
     order = np.argsort(p)
     m = len(p)
     passed = p[order] <= FDR * np.arange(1, m + 1) / m
     k = int(np.max(np.flatnonzero(passed)) + 1) if passed.any() else 0
     return [ids[j] for j in order[:k]]
+
+
+FORWARD_ALPHA = 0.05
+FORWARD_MAX = 10
+
+
+def forward_score(
+    data: AnalysisInput, *, alpha: float = FORWARD_ALPHA, max_size: int = FORWARD_MAX
+) -> list[str]:
+    """Forward stepwise selection by score tests, Bonferroni entry at ``alpha / p``.
+
+    Each step adds the feature whose score test against the current model (logistic with an
+    intercept, or Cox on survival worlds) is largest, while its two-sided p clears the
+    Bonferroni level; selection order is the ranking. Empty when nothing enters.
+    """
+    ids, x = prepared(data)
+    if not _usable(data, x):
+        return []
+    level = float(stats.norm.isf(alpha / (2 * x.shape[1])))
+    chosen: list[int] = []
+    while len(chosen) < min(max_size, x.shape[1]):
+        z = candidate_score_z(x, chosen, data.y, data.time)
+        if z is None:
+            break
+        best = int(np.argmax(np.abs(z)))
+        if abs(float(z[best])) <= level:
+            break
+        chosen.append(best)
+    return [ids[j] for j in chosen]
 
 
 def _penalised(data: AnalysisInput, l1_ratio: float) -> list[str]:

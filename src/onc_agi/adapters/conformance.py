@@ -3,7 +3,11 @@
 Runs reference clients over HTTP and checks that (a) remote scorecards equal
 in-process scores for the same worlds, (b) a dropped connection can resume from
 state, (c) retried requests are not charged twice and conflicting reuse of a
-request id is refused, and (d) traces replay exactly.
+request id is refused, (d) traces replay exactly, (e) another key can neither read,
+act on nor close a scorecard and gets the same error as an unknown id, (f) the
+closed scorecard is retrievable and equals the close response, and, when a
+``restart`` hook is given, (g) a server rebuilt from the same ledger and archive
+resumes an open scorecard mid-episode with identical state.
 """
 
 from __future__ import annotations
@@ -15,7 +19,16 @@ from onc_agi.adapters.agents import make_agent
 from onc_agi.adapters.client import ArenaClient
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.ports import WorldStore
-from onc_agi.core.schema import ErrorCode, Mode, Recruit, Reset, Submit, Tier, TraceEvent
+from onc_agi.core.schema import (
+    EpisodeStatus,
+    ErrorCode,
+    Mode,
+    Recruit,
+    Reset,
+    Submit,
+    Tier,
+    TraceEvent,
+)
 from onc_agi.services import scoring
 from onc_agi.services.engine import Episode
 from onc_agi.services.kit import run_episode
@@ -45,8 +58,10 @@ def run_conformance(
     *,
     n_worlds: int = 4,
     server_traces: Callable[[str], Sequence[TraceEvent]] | None = None,
+    restart: Callable[[], ArenaClient] | None = None,
 ) -> ConformanceReport:
-    """Run the suite. ``server_traces`` (scorecard id -> recorded events) enables check (d)."""
+    """Run the suite. ``server_traces`` (scorecard id -> recorded events) enables check (d);
+    ``restart`` (rebuild the server on the same state, return a client to it) enables (g)."""
     report = ConformanceReport()
     for name in REFERENCE_AGENTS:
         sid, cards = client.open(f"conformance-{name}", Tier.PUBLIC_TRAIN, n_worlds)
@@ -85,6 +100,7 @@ def run_conformance(
             for a, b in zip(remote.worlds, local, strict=True)
         )
         report.check(f"remote_equals_local[{name}]", same)
+        report.check(f"closed_scorecard_retrievable[{name}]", client.scorecard(sid) == remote)
 
     sid, cards = client.open("conformance-resume", Tier.PUBLIC_TRAIN, len(store.world_ids(Tier.PUBLIC_TRAIN)))
     seq = next((c for c in cards if c.mode is Mode.SEQUENTIAL), None)
@@ -108,5 +124,68 @@ def run_conformance(
         report.check("closed_episode_refuses_actions", False)
     except ArenaError as exc:
         report.check("closed_episode_refuses_actions", exc.code is ErrorCode.EPISODE_CLOSED)
-    client.close(sid)
+    _check_ownership(report, client)
+    if restart is not None:
+        _check_restart(report, client, restart)
+    closed = client.close(sid)
+    report.check("closed_scorecard_retrievable[resume]", client.scorecard(sid) == closed)
     return report
+
+
+def _refusal(call: Callable[[str], object], sid: str) -> tuple[ErrorCode, str] | None:
+    """The refusal ``call(sid)`` raises, with the id masked so different ids compare equal."""
+    try:
+        call(sid)
+    except ArenaError as exc:
+        return exc.code, exc.message.replace(sid, "<sid>")
+    return None
+
+
+def _check_ownership(report: ConformanceReport, client: ArenaClient) -> None:
+    """(e) a foreign key is told exactly what an unknown scorecard id is told."""
+    foreign = ArenaClient("", client.headers["X-Arena-Key"] + "-foreign", client=client.http)
+    sid, cards = client.open("conformance-ownership", Tier.PUBLIC_TRAIN, 1)
+    wid = cards[0].world_id
+    ghost = "sc-" + "0" * 16
+    reset = Reset(request_id="o-r", world_id=wid)
+    calls: dict[str, Callable[[str], object]] = {
+        "act": lambda s: foreign.act(s, wid, reset),
+        "state": lambda s: foreign.state(s, wid),
+        "close": foreign.close,
+    }
+    for verb, call in calls.items():
+        seen = _refusal(call, sid)
+        report.check(
+            f"foreign_key_refused_like_unknown_id[{verb}]", seen is not None and seen == _refusal(call, ghost)
+        )
+    first = client.act(sid, wid, reset)
+    report.check("owner_unaffected_by_foreign_attempts", first.step == 1)
+    closed = client.close(sid)
+    seen = _refusal(foreign.scorecard, sid)
+    report.check(
+        "foreign_key_refused_like_unknown_id[scorecard]",
+        seen is not None and seen == _refusal(foreign.scorecard, ghost),
+    )
+    report.check("closed_scorecard_retrievable[ownership]", client.scorecard(sid) == closed)
+
+
+def _check_restart(
+    report: ConformanceReport, client: ArenaClient, restart: Callable[[], ArenaClient]
+) -> None:
+    """(g) open scorecards survive a server restart mid-episode."""
+    sid, cards = client.open("conformance-restart", Tier.PUBLIC_TRAIN, 2)
+    card = next((c for c in cards if c.mode is Mode.SEQUENTIAL), cards[0])
+    client.act(sid, card.world_id, Reset(request_id="g-r", world_id=card.world_id))
+    if card.mode is Mode.SEQUENTIAL:
+        client.act(sid, card.world_id, Recruit(request_id="g-1", count=3, stratum=card.strata[0]))
+    before = client.state(sid, card.world_id)
+    after_client = restart()
+    client.http = after_client.http  # the old transport belongs to the stopped server
+    after = after_client.state(sid, card.world_id)
+    report.check("restart_restores_open_scorecard", after == before)
+    done = after_client.act(sid, card.world_id, Submit(request_id="g-s", ranking=()))
+    closed = after_client.close(sid)
+    report.check(
+        "restart_scorecard_closes_and_is_retrievable",
+        done.status is EpisodeStatus.SUBMITTED and after_client.scorecard(sid) == closed,
+    )

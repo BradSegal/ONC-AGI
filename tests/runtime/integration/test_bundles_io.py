@@ -81,6 +81,27 @@ def test_a_pool_whose_columns_disagree_with_the_card_is_rejected(tmp_path: Path)
         read_world(path)
 
 
+def test_fractional_outcomes_are_rejected_before_integer_conversion(tmp_path: Path) -> None:
+    world, key = planted_world("w-fractional", signal=True, seed=1)
+    path = write_world(tmp_path, world, key)
+    frame = pd.read_parquet(path / "pool.parquet")
+    frame["outcome"] = frame["outcome"].astype(float)
+    frame.loc[0, "outcome"] = 0.5
+    frame.to_parquet(path / "pool.parquet", index=False)
+    with pytest.raises(ValueError, match="binary"):
+        read_world(path)
+
+
+def test_missing_patient_identifiers_are_rejected_before_string_conversion(tmp_path: Path) -> None:
+    world, key = planted_world("w-missing-id", signal=True, seed=1)
+    path = write_world(tmp_path, world, key)
+    frame = pd.read_parquet(path / "pool.parquet")
+    frame.loc[0, "patient_id"] = None
+    frame.to_parquet(path / "pool.parquet", index=False)
+    with pytest.raises(ValueError, match="patient identifiers"):
+        read_world(path)
+
+
 def test_store_lists_worlds_per_tier_and_refuses_unknown_worlds(tmp_path: Path) -> None:
     for i, tier in enumerate([Tier.PUBLIC_TRAIN, Tier.PUBLIC_TRAIN, Tier.PUBLIC_EVAL]):
         world, key = planted_world(f"w-{i:02d}", signal=True, seed=i, tier=tier)

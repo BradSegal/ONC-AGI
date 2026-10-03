@@ -278,11 +278,29 @@
       "title": "Agent",
       "type": "string"
      },
+     "mode": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Mode"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Restrict the worlds to one mode."
+     },
      "n_worlds": {
-      "exclusiveMinimum": 0.0,
-      "maximum": 10000.0,
-      "title": "N Worlds",
-      "type": "integer"
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "maximum": 10000.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "N Worlds"
      },
      "tags": {
       "default": [],
@@ -299,12 +317,28 @@
       "default": "open",
       "title": "Track",
       "type": "string"
+     },
+     "world_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "maxItems": 10000,
+        "minItems": 1,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Named worlds (public train only).",
+      "title": "World Ids"
      }
     },
     "required": [
      "agent",
-     "tier",
-     "n_worlds"
+     "tier"
     ],
     "title": "OpenRequest",
     "type": "object"
@@ -422,7 +456,7 @@
    },
    "RevealedData": {
     "additionalProperties": false,
-    "description": "Columnar revealed data. Missing cells are ``None``.",
+    "description": "Columnar revealed data. Missing cells are ``None``.\n\nSurvival worlds: ``outcome`` is the event indicator (1 = event observed) and ``time`` the\nfollow-up in days (to the event or to censoring). ``time`` is omitted for binary worlds.",
     "properties": {
      "columns": {
       "additionalProperties": {
@@ -461,6 +495,20 @@
       },
       "title": "Stratum",
       "type": "array"
+     },
+     "time": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Time"
      }
     },
     "required": [
@@ -903,6 +951,19 @@
       "title": "Features",
       "type": "array"
      },
+     "horizon_days": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Survival only: administrative follow-up horizon in days (later events are censored).",
+      "title": "Horizon Days"
+     },
      "interface_version": {
       "const": "1.0",
       "default": "1.0",
@@ -923,8 +984,12 @@
       "default": "fake"
      },
      "outcome_type": {
-      "const": "binary",
       "default": "binary",
+      "description": "binary: outcome is 0/1. survival: outcome is the event indicator and data carry follow-up time.",
+      "enum": [
+       "binary",
+       "survival"
+      ],
       "title": "Outcome Type",
       "type": "string"
      },
@@ -975,6 +1040,31 @@
      "budget"
     ],
     "title": "WorldCard",
+    "type": "object"
+   },
+   "WorldList": {
+    "properties": {
+     "cards": {
+      "items": {
+       "$ref": "#/components/schemas/WorldCard"
+      },
+      "title": "Cards",
+      "type": "array"
+     },
+     "interface_version": {
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "tier": {
+      "$ref": "#/components/schemas/Tier"
+     }
+    },
+    "required": [
+     "tier",
+     "cards"
+    ],
+    "title": "WorldList",
     "type": "object"
    },
    "WorldScore": {
@@ -1181,6 +1271,55 @@
     "summary": "Open Scorecard"
    }
   },
+  "/v1/scorecards/{sid}": {
+   "get": {
+    "operationId": "scorecard_v1_scorecards__sid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Scorecard"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Scorecard"
+   }
+  },
   "/v1/scorecards/{sid}/close": {
    "post": {
     "operationId": "close_v1_scorecards__sid__close_post",
@@ -1354,6 +1493,55 @@
      }
     },
     "summary": "Act"
+   }
+  },
+  "/v1/worlds": {
+   "get": {
+    "operationId": "list_worlds_v1_worlds_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "$ref": "#/components/schemas/Tier",
+       "default": "public_train"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorldList"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Worlds"
    }
   }
  }

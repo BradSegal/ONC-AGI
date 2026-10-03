@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from arena_factories import fid, group, make_card, make_key, make_world, part, planted_world
-from onc_agi.core.schema import CreditRule, Mode, Recruit
+from onc_agi.core.schema import CreditRule, GroupLabel, Mode, Recruit
 from onc_agi.services.alignment import oracle_analyst_ranking, summarise, world_alignment
 from onc_agi.services.engine import Episode
 from onc_agi.services.scoring import score_world
@@ -83,3 +83,61 @@ def test_summary_averages_pairs_and_is_absent_without_worlds() -> None:
     assert summarise([]) is None
     diag = summarise([(1.0, 0.0), (0.0, 0.5)])
     assert diag is not None and (diag.analysis_regret, diag.acquisition_gap) == (0.5, 0.25)
+
+
+def test_binary_measurements_are_centred_in_an_interaction() -> None:
+    card = make_card(n_pool=40, n_features=2)
+    a = np.repeat([0.0, 0.0, 1.0, 1.0], 10)
+    b = np.repeat([0.0, 1.0, 0.0, 1.0], 10)
+    x = np.column_stack([a, b])
+    y = (a == b).astype(np.int64)
+    key = make_key(card, [group("i0", part(fid(0)), part(fid(1)), role="interaction")], threshold=4.0)
+    assert set(oracle_analyst_ranking(key, card.feature_ids(), x, y)) == {fid(0), fid(1)}
+
+
+def test_alignment_conditions_on_a_known_neutral_nuisance() -> None:
+    card = make_card(n_pool=400, n_features=2)
+    rng = np.random.default_rng(0)
+    cohort = rng.binomial(1, 0.5, 400).astype(float)
+    gene = cohort + 0.4 * rng.normal(size=400)
+    y = rng.binomial(1, 1 / (1 + np.exp(-(-1.5 + 3 * cohort + 0.15 * gene))))
+    key = make_key(
+        card,
+        [
+            group("g0", part(fid(0))),
+            group("c0", part(fid(1)), label=GroupLabel.NEUTRAL, role="cohort"),
+        ],
+    )
+    # Marginal association is strong, but the true conditional score in this outcome draw is < 3.
+    # A recoverability label describes repeated draws, not guaranteed detection in this draw.
+    assert oracle_analyst_ranking(key, card.feature_ids(), np.column_stack([gene, cohort]), y) == ()
+
+
+@pytest.mark.parametrize("role", ["effect_modifier", "mixture"])
+def test_binary_measurement_and_clinical_indicator_have_distinct_product_rules(role: str) -> None:
+    card = make_card(n_pool=40, n_features=2)
+    gene = np.repeat([0.0, 0.0, 1.0, 1.0], 10)
+    clinical = np.repeat([0.0, 1.0, 0.0, 1.0], 10)
+    if role == "mixture":
+        y = (gene == clinical).astype(np.int64)
+        threshold = 5.0
+    else:
+        y = np.where(clinical == 1, gene, np.tile([0, 1], 20)).astype(np.int64)
+        threshold = 3.5
+    key = make_key(card, [group("i0", part(fid(0)), part(fid(1)), role=role)], threshold=threshold)
+    assert set(oracle_analyst_ranking(key, card.feature_ids(), np.column_stack([gene, clinical]), y)) == {
+        fid(0),
+        fid(1),
+    }
+
+
+def test_a_constant_neutral_term_does_not_block_an_informative_revealed_term() -> None:
+    card = make_card(n_pool=40, n_features=2)
+    gene = np.arange(40, dtype=float)
+    x = np.column_stack([gene, np.zeros(40)])
+    y = (gene > 19).astype(np.int64)
+    key = make_key(
+        card,
+        [group("g0", part(fid(0))), group("c0", part(fid(1)), label=GroupLabel.NEUTRAL, role="cohort")],
+    )
+    assert oracle_analyst_ranking(key, card.feature_ids(), x, y) == (fid(0),)

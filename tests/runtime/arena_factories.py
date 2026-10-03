@@ -209,3 +209,54 @@ def standard_world(
     return planted_world(
         f"w-{i:02d}", signal=i % 3 != 2, seed=100 + i, tier=tier, mode=mode, difficulty_tier=i % 2
     )
+
+
+HORIZON = 1826.25
+
+
+def survival_world(
+    world_id: str,
+    *,
+    signal: bool,
+    seed: int,
+    n_pool: int = 240,
+    n_features: int = 8,
+    tier: Tier = Tier.PUBLIC_TRAIN,
+    mode: Mode = Mode.FULL_ACCESS,
+    log_hazard_ratio: float = 1.0,
+    missing: float = 0.0,
+) -> tuple[WorldData, AnswerKey]:
+    """A survival world: exponential event times with log-hazard ``log_hazard_ratio * f00`` (or none),
+    independent exponential censoring and administrative censoring at the horizon; ``f07`` is a leak.
+
+    ``missing`` blanks that share of cells, completely at random, in the baseline columns other
+    than the truth ``f00``.
+    """
+    base = make_card(
+        world_id, n_pool=n_pool, n_features=n_features, tier=tier, mode=mode, post_outcome=(LEAK,)
+    )
+    card = WorldCard.model_validate(base.model_dump() | {"outcome_type": "survival", "horizon_days": HORIZON})
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=(n_pool, n_features))
+    rate = np.exp(log_hazard_ratio * x[:, 0] if signal else np.zeros(n_pool)) / 1500.0
+    event_time = rng.exponential(1.0 / rate)
+    censor_time = np.minimum(rng.exponential(3000.0, size=n_pool), HORIZON)
+    time = np.minimum(event_time, censor_time)
+    y = (event_time <= censor_time).astype(np.int64)
+    x[:, n_features - 1] = y + 0.3 * rng.normal(size=n_pool)
+    if missing > 0:
+        inner = x[:, 1 : n_features - 1]
+        x[:, 1 : n_features - 1] = np.where(rng.random(inner.shape) < missing, np.nan, inner)
+    plain = make_world(base, seed=seed, x=x, y=y)  # the binary twin supplies ids, strata and queues
+    world = WorldData(
+        card=card,
+        patient_ids=plain.patient_ids,
+        x=plain.x,
+        y=plain.y,
+        stratum=plain.stratum,
+        queues=plain.queues,
+        time=np.asarray(time, dtype=np.float64),
+    )
+    groups = [group("g0", part(fid(0)))] if signal else []
+    strata = {f: "expression" for f in card.feature_ids()}
+    return world, make_key(card, groups, reject=(LEAK,), strata=strata)

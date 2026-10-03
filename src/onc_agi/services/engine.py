@@ -55,6 +55,7 @@ class EpisodeView:
     feature_ids: tuple[str, ...]
     x: NDArray[np.float64]  # (len(rows), len(feature_ids)); NaN where not measured
     measured: tuple[bool, ...]  # per feature: measured on at least one recruited row
+    time: NDArray[np.float64] | None = None  # survival worlds: follow-up of revealed rows
 
     def to_observation(self, patient_ids: tuple[str, ...]) -> Observation:
         """Validated wire form (measured columns only)."""
@@ -76,6 +77,7 @@ class EpisodeView:
                 outcome=tuple(int(v) for v in self.outcome),
                 stratum=self.stratum,
                 columns=columns,
+                time=None if self.time is None else tuple(float(v) for v in self.time),
             ),
         )
 
@@ -132,6 +134,7 @@ class Episode:
             feature_ids=fids,
             x=x,
             measured=measured,
+            time=None if self.world.time is None else self.world.time[rows],
         )
 
     def apply(self, action: Action) -> EpisodeView:
