@@ -1,0 +1,163 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-null-b-seq",
+ "tier": "public_train",
+ "mode": "sequential",
+ "outcome_type": "binary",
+ "n_pool": 240,
+ "features": [
+  {
+   "feature_id": "kmk5",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "kjj1",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "ccp2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "xpj4",
+   "data_type": "clinical",
+   "timing": "baseline",
+   "assay_price": 0.5
+  },
+  {
+   "feature_id": "jsv2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "qhk6",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "flw5",
+   "data_type": "derived",
+   "timing": "baseline",
+   "assay_price": 1.0
+  },
+  {
+   "feature_id": "lkc5",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "qsd7",
+   "data_type": "clinical",
+   "timing": "baseline",
+   "assay_price": 0.5
+  },
+  {
+   "feature_id": "zkz7",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "rsv5",
+   "data_type": "protein",
+   "timing": "baseline",
+   "assay_price": 8.0
+  },
+  {
+   "feature_id": "gkb4",
+   "data_type": "protein",
+   "timing": "baseline",
+   "assay_price": 8.0
+  },
+  {
+   "feature_id": "spf8",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "csl2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "fnl6",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "vgh2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "kpb5",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "ftq7",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "kss7",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "cxs2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "gcv2",
+   "data_type": "lab",
+   "timing": "baseline",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "pqr7",
+   "data_type": "derived",
+   "timing": "baseline",
+   "assay_price": 1.0
+  },
+  {
+   "feature_id": "kxq8",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  }
+ ],
+ "strata": [
+  "s-a",
+  "s-b"
+ ],
+ "stratum_sizes": {
+  "s-a": 118,
+  "s-b": 122
+ },
+ "prices": {
+  "recruit_per_patient": 40.0,
+  "currency": "USD"
+ },
+ "budget": 25920.0,
+ "name_visibility": "fake",
+ "premise": "Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found."
+}

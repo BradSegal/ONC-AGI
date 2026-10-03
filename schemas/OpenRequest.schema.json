@@ -1,0 +1,51 @@
+{
+ "$defs": {
+  "Tier": {
+   "enum": [
+    "public_train",
+    "public_eval",
+    "private"
+   ],
+   "title": "Tier",
+   "type": "string"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "agent": {
+   "maxLength": 96,
+   "minLength": 1,
+   "title": "Agent",
+   "type": "string"
+  },
+  "n_worlds": {
+   "exclusiveMinimum": 0,
+   "maximum": 10000,
+   "title": "N Worlds",
+   "type": "integer"
+  },
+  "tags": {
+   "default": [],
+   "items": {
+    "type": "string"
+   },
+   "title": "Tags",
+   "type": "array"
+  },
+  "tier": {
+   "$ref": "#/$defs/Tier"
+  },
+  "track": {
+   "default": "open",
+   "title": "Track",
+   "type": "string"
+  }
+ },
+ "required": [
+  "agent",
+  "tier",
+  "n_worlds"
+ ],
+ "title": "OpenRequest",
+ "type": "object"
+}

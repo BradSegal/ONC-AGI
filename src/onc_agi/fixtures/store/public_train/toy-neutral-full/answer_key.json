@@ -1,0 +1,99 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-neutral-full",
+ "difficulty_tier": 1,
+ "groups": [
+  {
+   "group_id": "g-generating",
+   "role": "generating",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "mrd3",
+     "equivalence_set": [
+      "mrd3"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  },
+  {
+   "group_id": "g-neutral",
+   "role": "generating",
+   "label": "neutral",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "njs1",
+     "equivalence_set": [
+      "njs1"
+     ],
+     "exact_recoverable": false,
+     "weight": 0.05
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "hlp1",
+  "pwr6",
+  "smj9"
+ ],
+ "clusters": {
+  "pwr6": 2200,
+  "gzj7": 1800,
+  "gxm5": 900,
+  "njs1": 1500,
+  "mrd3": 100,
+  "smj9": 1300,
+  "hjm3": 400,
+  "zjr1": 600,
+  "bnh3": 2100,
+  "zrz3": 2100,
+  "gkd9": 300,
+  "rnd8": 2000,
+  "lwg4": 1900,
+  "hlp1": 700,
+  "wwm9": 200,
+  "psg8": 1000,
+  "gpr5": 1600,
+  "qzm3": 1400,
+  "slt3": 1200,
+  "lxm2": 800,
+  "vwn8": 500,
+  "rgb7": 1100,
+  "wwn9": 1700
+ },
+ "strata": {
+  "pwr6": "lab|c0|d0",
+  "gzj7": "expression",
+  "gxm5": "mixed",
+  "njs1": "mixed",
+  "mrd3": "expression",
+  "smj9": "lab|c0|d0",
+  "hjm3": "mixed",
+  "zjr1": "lab|c0|d0",
+  "bnh3": "expression",
+  "zrz3": "expression",
+  "gkd9": "expression",
+  "rnd8": "mixed",
+  "lwg4": "mixed",
+  "hlp1": "lab|c0|d0",
+  "wwm9": "expression",
+  "psg8": "mixed",
+  "gpr5": "mixed",
+  "qzm3": "mixed",
+  "slt3": "expression",
+  "lxm2": "mixed",
+  "vwn8": "expression",
+  "rgb7": "expression",
+  "wwn9": "expression"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 3.058892753240959,
+ "oracle_version": "toy-1-by-construction"
+}

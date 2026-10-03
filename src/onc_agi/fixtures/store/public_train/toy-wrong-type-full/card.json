@@ -1,0 +1,161 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-wrong-type-full",
+ "tier": "public_train",
+ "mode": "full_access",
+ "outcome_type": "binary",
+ "n_pool": 240,
+ "features": [
+  {
+   "feature_id": "mjl1",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "fkp2",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "gmh1",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "krw2",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "mjt4",
+   "data_type": "copy_number",
+   "timing": "baseline",
+   "assay_price": 3.0
+  },
+  {
+   "feature_id": "gwr6",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "qbr5",
+   "data_type": "protein",
+   "timing": "baseline",
+   "assay_price": 8.0
+  },
+  {
+   "feature_id": "psl3",
+   "data_type": "lab",
+   "timing": "baseline",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "htd5",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "jmw1",
+   "data_type": "protein",
+   "timing": "baseline",
+   "assay_price": 8.0
+  },
+  {
+   "feature_id": "gpp5",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "fzd3",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "nwd4",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "qqp5",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "hnm2",
+   "data_type": "derived",
+   "timing": "baseline",
+   "assay_price": 1.0
+  },
+  {
+   "feature_id": "tgm5",
+   "data_type": "derived",
+   "timing": "baseline",
+   "assay_price": 1.0
+  },
+  {
+   "feature_id": "lfx1",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "cjj6",
+   "data_type": "clinical",
+   "timing": "baseline",
+   "assay_price": 0.5
+  },
+  {
+   "feature_id": "wcb6",
+   "data_type": "clinical",
+   "timing": "baseline",
+   "assay_price": 0.5
+  },
+  {
+   "feature_id": "bjr6",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "rtl6",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  },
+  {
+   "feature_id": "tff5",
+   "data_type": "lab",
+   "timing": "post_outcome",
+   "assay_price": 5.0
+  },
+  {
+   "feature_id": "fwr1",
+   "data_type": "expression",
+   "timing": "baseline",
+   "assay_price": 2.0
+  }
+ ],
+ "strata": [
+  "all"
+ ],
+ "stratum_sizes": {
+  "all": 240
+ },
+ "prices": {
+  "recruit_per_patient": 40.0,
+  "currency": "USD"
+ },
+ "budget": 25920.0,
+ "name_visibility": "fake",
+ "premise": "Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found."
+}

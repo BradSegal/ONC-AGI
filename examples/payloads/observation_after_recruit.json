@@ -1,0 +1,41 @@
+{
+ "available_actions": [
+  "recruit",
+  "assay",
+  "submit"
+ ],
+ "budget": 25920.0,
+ "interface_version": "1.0",
+ "mode": "sequential",
+ "revealed": {
+  "columns": {},
+  "outcome": [
+   0,
+   0,
+   1,
+   0,
+   1,
+   1
+  ],
+  "patient_ids": [
+   "p0008",
+   "p0224",
+   "p0231",
+   "p0063",
+   "p0225",
+   "p0072"
+  ],
+  "stratum": [
+   "all",
+   "all",
+   "all",
+   "all",
+   "all",
+   "all"
+  ]
+ },
+ "spent": 240.0,
+ "status": "active",
+ "step": 2,
+ "world_id": "toy-driver-seq"
+}

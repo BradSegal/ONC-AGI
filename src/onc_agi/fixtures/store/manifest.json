@@ -1,0 +1,146 @@
+{
+ "builder": "toy-1",
+ "kind": "toy contract fixtures (not benchmark tasks; answer keys by construction)",
+ "worlds": [
+  {
+   "world_id": "toy-null-a-full",
+   "mode": "full_access",
+   "difficulty_tier": 0,
+   "depth": 0,
+   "description": "No signal: the correct answer is an empty list."
+  },
+  {
+   "world_id": "toy-null-a-seq",
+   "mode": "sequential",
+   "difficulty_tier": 0,
+   "depth": 0,
+   "description": "No signal: the correct answer is an empty list."
+  },
+  {
+   "world_id": "toy-null-b-full",
+   "mode": "full_access",
+   "difficulty_tier": 2,
+   "depth": 0,
+   "description": "No signal, in a world with two recruitment strata."
+  },
+  {
+   "world_id": "toy-null-b-seq",
+   "mode": "sequential",
+   "difficulty_tier": 2,
+   "depth": 0,
+   "description": "No signal, in a world with two recruitment strata."
+  },
+  {
+   "world_id": "toy-driver-full",
+   "mode": "full_access",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "One strong expression driver."
+  },
+  {
+   "world_id": "toy-driver-seq",
+   "mode": "sequential",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "One strong expression driver."
+  },
+  {
+   "world_id": "toy-stand-in-full",
+   "mode": "full_access",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "A driver with a near-duplicate partner; either earns credit."
+  },
+  {
+   "world_id": "toy-stand-in-seq",
+   "mode": "sequential",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "A driver with a near-duplicate partner; either earns credit."
+  },
+  {
+   "world_id": "toy-wrong-type-full",
+   "mode": "full_access",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "A copy-number cause whose expression target is only a correlate."
+  },
+  {
+   "world_id": "toy-wrong-type-seq",
+   "mode": "sequential",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "A copy-number cause whose expression target is only a correlate."
+  },
+  {
+   "world_id": "toy-confounder-full",
+   "mode": "full_access",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "An observed clinical confounder drives the outcome."
+  },
+  {
+   "world_id": "toy-confounder-seq",
+   "mode": "sequential",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "An observed clinical confounder drives the outcome."
+  },
+  {
+   "world_id": "toy-leak-full",
+   "mode": "full_access",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "A real driver plus a post-outcome column that tracks the outcome."
+  },
+  {
+   "world_id": "toy-leak-seq",
+   "mode": "sequential",
+   "difficulty_tier": 0,
+   "depth": 1,
+   "description": "A real driver plus a post-outcome column that tracks the outcome."
+  },
+  {
+   "world_id": "toy-interaction-full",
+   "mode": "full_access",
+   "difficulty_tier": 2,
+   "depth": 2,
+   "description": "Two features matter only jointly."
+  },
+  {
+   "world_id": "toy-interaction-seq",
+   "mode": "sequential",
+   "difficulty_tier": 2,
+   "depth": 2,
+   "description": "Two features matter only jointly."
+  },
+  {
+   "world_id": "toy-module-full",
+   "mode": "full_access",
+   "difficulty_tier": 2,
+   "depth": 3,
+   "description": "A three-member module credited by weighted coverage."
+  },
+  {
+   "world_id": "toy-module-seq",
+   "mode": "sequential",
+   "difficulty_tier": 2,
+   "depth": 3,
+   "description": "A three-member module credited by weighted coverage."
+  },
+  {
+   "world_id": "toy-neutral-full",
+   "mode": "full_access",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "One driver and one unrecoverable planted effect."
+  },
+  {
+   "world_id": "toy-neutral-seq",
+   "mode": "sequential",
+   "difficulty_tier": 1,
+   "depth": 1,
+   "description": "One driver and one unrecoverable planted effect."
+  }
+ ]
+}

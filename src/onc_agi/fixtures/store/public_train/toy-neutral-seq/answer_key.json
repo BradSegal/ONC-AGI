@@ -1,0 +1,99 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-neutral-seq",
+ "difficulty_tier": 1,
+ "groups": [
+  {
+   "group_id": "g-generating",
+   "role": "generating",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "tvv2",
+     "equivalence_set": [
+      "tvv2"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  },
+  {
+   "group_id": "g-neutral",
+   "role": "generating",
+   "label": "neutral",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "wwc7",
+     "equivalence_set": [
+      "wwc7"
+     ],
+     "exact_recoverable": false,
+     "weight": 0.05
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "qqw1",
+  "vfg3",
+  "ljw6"
+ ],
+ "clusters": {
+  "ghr1": 1200,
+  "rmm5": 2100,
+  "tsb7": 300,
+  "lqz5": 1700,
+  "rhl4": 100,
+  "hkq1": 400,
+  "xzl5": 2000,
+  "pmr7": 200,
+  "tvv2": 1000,
+  "ksb1": 1600,
+  "qqw1": 600,
+  "xtc9": 1800,
+  "dpf3": 1400,
+  "qsv9": 500,
+  "ljw6": 700,
+  "wwc7": 1900,
+  "vfg3": 2200,
+  "hsw7": 800,
+  "fbx2": 900,
+  "pfm8": 1500,
+  "txn8": 2000,
+  "tgk8": 1300,
+  "fbw3": 1100
+ },
+ "strata": {
+  "ghr1": "expression",
+  "rmm5": "expression",
+  "tsb7": "mixed",
+  "lqz5": "mixed",
+  "rhl4": "mixed",
+  "hkq1": "mixed",
+  "xzl5": "expression",
+  "pmr7": "lab|c0|d0",
+  "tvv2": "expression",
+  "ksb1": "mixed",
+  "qqw1": "lab|c0|d0",
+  "xtc9": "expression",
+  "dpf3": "mixed",
+  "qsv9": "mixed",
+  "ljw6": "lab|c0|d0",
+  "wwc7": "mixed",
+  "vfg3": "lab|c0|d0",
+  "hsw7": "mixed",
+  "fbx2": "expression",
+  "pfm8": "expression",
+  "txn8": "expression",
+  "tgk8": "expression",
+  "fbw3": "expression"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 3.150807147663983,
+ "oracle_version": "toy-1-by-construction"
+}

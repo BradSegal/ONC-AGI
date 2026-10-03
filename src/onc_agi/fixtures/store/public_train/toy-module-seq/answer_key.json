@@ -1,0 +1,98 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-module-seq",
+ "difficulty_tier": 2,
+ "groups": [
+  {
+   "group_id": "g-module",
+   "role": "module",
+   "label": "recoverable",
+   "credit_rule": "weighted_coverage",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "fpf7",
+     "equivalence_set": [
+      "fpf7"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.2
+    },
+    {
+     "true_feature": "pxt5",
+     "equivalence_set": [
+      "pxt5"
+     ],
+     "exact_recoverable": true,
+     "weight": 0.9
+    },
+    {
+     "true_feature": "wcz8",
+     "equivalence_set": [
+      "wcz8"
+     ],
+     "exact_recoverable": true,
+     "weight": 0.7
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "jvr1",
+  "hsf7",
+  "mfj7"
+ ],
+ "clusters": {
+  "mvl1": 1000,
+  "lws5": 1500,
+  "mfj7": 2000,
+  "wns2": 100,
+  "jmc4": 1100,
+  "jcb9": 1200,
+  "xrn7": 100,
+  "bct4": 1400,
+  "jvr1": 900,
+  "vfr1": 1700,
+  "lkp8": 1800,
+  "plt6": 700,
+  "pxt5": 2200,
+  "cmd6": 1600,
+  "ppx1": 500,
+  "lgc9": 400,
+  "dpx4": 2100,
+  "hsf7": 1900,
+  "xrb1": 800,
+  "fpf7": 600,
+  "kxd1": 200,
+  "wcz8": 300,
+  "jln6": 1300
+ },
+ "strata": {
+  "mvl1": "expression",
+  "lws5": "mixed",
+  "mfj7": "lab|c0|d0",
+  "wns2": "expression",
+  "jmc4": "mixed",
+  "jcb9": "expression",
+  "xrn7": "expression",
+  "bct4": "mixed",
+  "jvr1": "lab|c0|d0",
+  "vfr1": "mixed",
+  "lkp8": "mixed",
+  "plt6": "mixed",
+  "pxt5": "mixed",
+  "cmd6": "expression",
+  "ppx1": "lab|c0|d0",
+  "lgc9": "expression",
+  "dpx4": "expression",
+  "hsf7": "lab|c0|d0",
+  "xrb1": "expression",
+  "fpf7": "mixed",
+  "kxd1": "expression",
+  "wcz8": "expression",
+  "jln6": "mixed"
+ },
+ "reference_cost": 21600.0,
+ "detection_threshold": 2.8377853501152526,
+ "oracle_version": "toy-1-by-construction"
+}

@@ -1,0 +1,6 @@
+{
+ "agent": "my-agent",
+ "n_worlds": 2,
+ "tier": "public_train",
+ "track": "open"
+}

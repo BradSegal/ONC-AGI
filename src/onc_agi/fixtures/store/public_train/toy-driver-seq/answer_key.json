@@ -1,0 +1,82 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-driver-seq",
+ "difficulty_tier": 0,
+ "groups": [
+  {
+   "group_id": "g-generating",
+   "role": "generating",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "lbl1",
+     "equivalence_set": [
+      "lbl1"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "bjp1",
+  "zps2",
+  "znk6"
+ ],
+ "clusters": {
+  "lbl1": 100,
+  "bjp1": 1300,
+  "mgp7": 1400,
+  "dww4": 1800,
+  "djp6": 900,
+  "zml6": 500,
+  "nvx7": 300,
+  "jkv7": 1000,
+  "twb6": 1400,
+  "hxf5": 1100,
+  "kkg4": 1700,
+  "qds5": 400,
+  "vrb4": 1500,
+  "jxv4": 1600,
+  "tjb1": 700,
+  "jrb1": 2000,
+  "kpr5": 1200,
+  "znk6": 200,
+  "nhh9": 1900,
+  "drv5": 800,
+  "zps2": 600,
+  "rlt1": 2100,
+  "pcb6": 2200
+ },
+ "strata": {
+  "lbl1": "expression",
+  "bjp1": "lab|c0|d0",
+  "mgp7": "expression",
+  "dww4": "mixed",
+  "djp6": "mixed",
+  "zml6": "lab|c0|d0",
+  "nvx7": "mixed",
+  "jkv7": "mixed",
+  "twb6": "expression",
+  "hxf5": "mixed",
+  "kkg4": "expression",
+  "qds5": "expression",
+  "vrb4": "expression",
+  "jxv4": "expression",
+  "tjb1": "expression",
+  "jrb1": "expression",
+  "kpr5": "expression",
+  "znk6": "lab|c0|d0",
+  "nhh9": "mixed",
+  "drv5": "mixed",
+  "zps2": "lab|c0|d0",
+  "rlt1": "mixed",
+  "pcb6": "mixed"
+ },
+ "reference_cost": 12960.0,
+ "detection_threshold": 3.0079284172794782,
+ "oracle_version": "toy-1-by-construction"
+}

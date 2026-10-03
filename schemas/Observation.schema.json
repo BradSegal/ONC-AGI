@@ -1,0 +1,135 @@
+{
+ "$defs": {
+  "EpisodeStatus": {
+   "enum": [
+    "active",
+    "submitted"
+   ],
+   "title": "EpisodeStatus",
+   "type": "string"
+  },
+  "Mode": {
+   "enum": [
+    "full_access",
+    "sequential"
+   ],
+   "title": "Mode",
+   "type": "string"
+  },
+  "RevealedData": {
+   "additionalProperties": false,
+   "description": "Columnar revealed data. Missing cells are ``None``.",
+   "properties": {
+    "columns": {
+     "additionalProperties": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "type": "array"
+     },
+     "title": "Columns",
+     "type": "object"
+    },
+    "outcome": {
+     "items": {
+      "type": "integer"
+     },
+     "title": "Outcome",
+     "type": "array"
+    },
+    "patient_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Patient Ids",
+     "type": "array"
+    },
+    "stratum": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Stratum",
+     "type": "array"
+    }
+   },
+   "required": [
+    "patient_ids",
+    "outcome",
+    "stratum",
+    "columns"
+   ],
+   "title": "RevealedData",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "available_actions": {
+   "items": {
+    "enum": [
+     "recruit",
+     "assay",
+     "submit"
+    ],
+    "type": "string"
+   },
+   "title": "Available Actions",
+   "type": "array"
+  },
+  "budget": {
+   "title": "Budget",
+   "type": "number"
+  },
+  "interface_version": {
+   "const": "1.0",
+   "default": "1.0",
+   "title": "Interface Version",
+   "type": "string"
+  },
+  "mode": {
+   "$ref": "#/$defs/Mode"
+  },
+  "revealed": {
+   "$ref": "#/$defs/RevealedData"
+  },
+  "spent": {
+   "minimum": 0.0,
+   "title": "Spent",
+   "type": "number"
+  },
+  "status": {
+   "$ref": "#/$defs/EpisodeStatus"
+  },
+  "step": {
+   "minimum": 0,
+   "title": "Step",
+   "type": "integer"
+  },
+  "world_id": {
+   "maxLength": 96,
+   "minLength": 1,
+   "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+   "title": "World Id",
+   "type": "string"
+  }
+ },
+ "required": [
+  "world_id",
+  "mode",
+  "step",
+  "status",
+  "budget",
+  "spent",
+  "available_actions",
+  "revealed"
+ ],
+ "title": "Observation",
+ "type": "object"
+}

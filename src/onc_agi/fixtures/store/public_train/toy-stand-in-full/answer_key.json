@@ -1,0 +1,83 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-stand-in-full",
+ "difficulty_tier": 1,
+ "groups": [
+  {
+   "group_id": "g-stand_in",
+   "role": "stand_in",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "prw7",
+     "equivalence_set": [
+      "prw7",
+      "nhr3"
+     ],
+     "exact_recoverable": false,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "sdz2",
+  "vfr2",
+  "gbm2"
+ ],
+ "clusters": {
+  "xbr6": 1800,
+  "pzp6": 300,
+  "tdf8": 100,
+  "gbm2": 1900,
+  "sgm3": 1600,
+  "hdc6": 1400,
+  "fjj8": 200,
+  "hcn4": 800,
+  "vfr2": 900,
+  "prw7": 700,
+  "bhh1": 1000,
+  "tbf1": 400,
+  "xbm5": 2000,
+  "sdz2": 2200,
+  "gqq6": 1100,
+  "zww1": 2100,
+  "tbk5": 500,
+  "hst8": 600,
+  "frf4": 1700,
+  "nhr3": 700,
+  "jnd7": 1300,
+  "dpz6": 1500,
+  "sxf7": 1200
+ },
+ "strata": {
+  "xbr6": "expression",
+  "pzp6": "expression",
+  "tdf8": "expression",
+  "gbm2": "lab|c0|d0",
+  "sgm3": "lab|c0|d0",
+  "hdc6": "expression",
+  "fjj8": "mixed",
+  "hcn4": "mixed",
+  "vfr2": "lab|c0|d0",
+  "prw7": "expression",
+  "bhh1": "mixed",
+  "tbf1": "mixed",
+  "xbm5": "mixed",
+  "sdz2": "lab|c0|d0",
+  "gqq6": "expression",
+  "zww1": "expression",
+  "tbk5": "mixed",
+  "hst8": "mixed",
+  "frf4": "mixed",
+  "nhr3": "expression",
+  "jnd7": "expression",
+  "dpz6": "mixed",
+  "sxf7": "expression"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 2.978148790458494,
+ "oracle_version": "toy-1-by-construction"
+}

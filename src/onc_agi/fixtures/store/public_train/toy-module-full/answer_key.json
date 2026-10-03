@@ -1,0 +1,98 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-module-full",
+ "difficulty_tier": 2,
+ "groups": [
+  {
+   "group_id": "g-module",
+   "role": "module",
+   "label": "recoverable",
+   "credit_rule": "weighted_coverage",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "pdm6",
+     "equivalence_set": [
+      "pdm6"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.2
+    },
+    {
+     "true_feature": "tjb4",
+     "equivalence_set": [
+      "tjb4"
+     ],
+     "exact_recoverable": true,
+     "weight": 0.9
+    },
+    {
+     "true_feature": "lnk5",
+     "equivalence_set": [
+      "lnk5"
+     ],
+     "exact_recoverable": true,
+     "weight": 0.7
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "hzb1",
+  "xhs1",
+  "spm1"
+ ],
+ "clusters": {
+  "jlv9": 1600,
+  "pdm6": 900,
+  "lnk5": 1100,
+  "spm1": 2100,
+  "hzb1": 300,
+  "ffn6": 400,
+  "qzp2": 500,
+  "vbw6": 1400,
+  "xhs1": 1900,
+  "lhj2": 100,
+  "tjb4": 1800,
+  "trg1": 2200,
+  "pzl2": 200,
+  "kxz7": 700,
+  "kbg3": 1700,
+  "php2": 800,
+  "glc3": 600,
+  "hjp3": 1000,
+  "fbt4": 2000,
+  "gfs9": 1200,
+  "hns9": 1700,
+  "gsg4": 1500,
+  "nvg4": 1300
+ },
+ "strata": {
+  "jlv9": "expression",
+  "pdm6": "mixed",
+  "lnk5": "expression",
+  "spm1": "lab|c0|d0",
+  "hzb1": "lab|c0|d0",
+  "ffn6": "lab|c0|d0",
+  "qzp2": "expression",
+  "vbw6": "mixed",
+  "xhs1": "lab|c0|d0",
+  "lhj2": "mixed",
+  "tjb4": "mixed",
+  "trg1": "mixed",
+  "pzl2": "expression",
+  "kxz7": "mixed",
+  "kbg3": "expression",
+  "php2": "expression",
+  "glc3": "mixed",
+  "hjp3": "mixed",
+  "fbt4": "mixed",
+  "gfs9": "expression",
+  "hns9": "expression",
+  "gsg4": "expression",
+  "nvg4": "expression"
+ },
+ "reference_cost": 21600.0,
+ "detection_threshold": 3.036615067761133,
+ "oracle_version": "toy-1-by-construction"
+}

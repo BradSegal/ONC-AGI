@@ -1,0 +1,126 @@
+{
+ "additionalProperties": false,
+ "properties": {
+  "abstained": {
+   "description": "Submitted an empty list (after neutral removal).",
+   "title": "Abstained",
+   "type": "boolean"
+  },
+  "chance_recovery": {
+   "maximum": 1.0,
+   "minimum": 0.0,
+   "title": "Chance Recovery",
+   "type": "number"
+  },
+  "cost_usd": {
+   "anyOf": [
+    {
+     "minimum": 0.0,
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Cost Usd"
+  },
+  "difficulty_tier": {
+   "title": "Difficulty Tier",
+   "type": "integer"
+  },
+  "efficiency": {
+   "maximum": 1.0,
+   "minimum": 0.0,
+   "title": "Efficiency",
+   "type": "number"
+  },
+  "find": {
+   "description": "Chance-normalised recovery q_w, clipped to [0, 1] (0 for null worlds).",
+   "maximum": 1.0,
+   "minimum": 0.0,
+   "title": "Find",
+   "type": "number"
+  },
+  "find_exact": {
+   "maximum": 1.0,
+   "minimum": 0.0,
+   "title": "Find Exact",
+   "type": "number"
+  },
+  "find_signed": {
+   "description": "Unclipped chance-normalised recovery; zero in expectation for any outcome-blind list (gates, intervals).",
+   "maximum": 1.0,
+   "title": "Find Signed",
+   "type": "number"
+  },
+  "is_null": {
+   "title": "Is Null",
+   "type": "boolean"
+  },
+  "leaked": {
+   "title": "Leaked",
+   "type": "boolean"
+  },
+  "listed": {
+   "minimum": 0,
+   "title": "Listed",
+   "type": "integer"
+  },
+  "raw_recovery": {
+   "maximum": 1.0,
+   "minimum": 0.0,
+   "title": "Raw Recovery",
+   "type": "number"
+  },
+  "restrained": {
+   "description": "Empty after neutral removal on a null world.",
+   "title": "Restrained",
+   "type": "boolean"
+  },
+  "spent": {
+   "minimum": 0.0,
+   "title": "Spent",
+   "type": "number"
+  },
+  "tokens": {
+   "anyOf": [
+    {
+     "minimum": 0,
+     "type": "integer"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "LLM tokens spent on this world (standard harness).",
+   "title": "Tokens"
+  },
+  "world_id": {
+   "maxLength": 96,
+   "minLength": 1,
+   "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+   "title": "World Id",
+   "type": "string"
+  }
+ },
+ "required": [
+  "world_id",
+  "difficulty_tier",
+  "is_null",
+  "find",
+  "find_signed",
+  "find_exact",
+  "raw_recovery",
+  "chance_recovery",
+  "restrained",
+  "abstained",
+  "leaked",
+  "spent",
+  "efficiency",
+  "listed"
+ ],
+ "title": "WorldScore",
+ "type": "object"
+}

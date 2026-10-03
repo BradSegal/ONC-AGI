@@ -1,0 +1,180 @@
+{
+ "$defs": {
+  "CreditRule": {
+   "description": "How a true group's parts earn credit.",
+   "enum": [
+    "single",
+    "joint",
+    "weighted_coverage"
+   ],
+   "title": "CreditRule",
+   "type": "string"
+  },
+  "GroupLabel": {
+   "enum": [
+    "recoverable",
+    "neutral"
+   ],
+   "title": "GroupLabel",
+   "type": "string"
+  },
+  "TrueGroup": {
+   "additionalProperties": false,
+   "properties": {
+    "credit_rule": {
+     "$ref": "#/$defs/CreditRule",
+     "default": "single"
+    },
+    "group_id": {
+     "title": "Group Id",
+     "type": "string"
+    },
+    "label": {
+     "$ref": "#/$defs/GroupLabel"
+    },
+    "parts": {
+     "items": {
+      "$ref": "#/$defs/TruthPart"
+     },
+     "maxItems": 12,
+     "minItems": 1,
+     "title": "Parts",
+     "type": "array"
+    },
+    "role": {
+     "title": "Role",
+     "type": "string"
+    },
+    "underdetermined": {
+     "default": false,
+     "description": "Certified as not recoverable from the data (scored as neutral, only restraint counts).",
+     "title": "Underdetermined",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "group_id",
+    "role",
+    "label",
+    "parts"
+   ],
+   "title": "TrueGroup",
+   "type": "object"
+  },
+  "TruthPart": {
+   "additionalProperties": false,
+   "description": "One scored slot of a true group: its representative feature and credit set.",
+   "properties": {
+    "equivalence_set": {
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Equivalence Set",
+     "type": "array"
+    },
+    "exact_recoverable": {
+     "title": "Exact Recoverable",
+     "type": "boolean"
+    },
+    "true_feature": {
+     "description": "The generating feature or, for a hidden cause, its best observed proxy.",
+     "title": "True Feature",
+     "type": "string"
+    },
+    "weight": {
+     "default": 1.0,
+     "description": "Absolute generating weight (used by weighted coverage).",
+     "exclusiveMinimum": 0.0,
+     "title": "Weight",
+     "type": "number"
+    }
+   },
+   "required": [
+    "true_feature",
+    "equivalence_set",
+    "exact_recoverable"
+   ],
+   "title": "TruthPart",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "description": "Scorer-side truth for one world. Never revealed outside public-train.",
+ "properties": {
+  "clusters": {
+   "additionalProperties": {
+    "type": "integer"
+   },
+   "title": "Clusters",
+   "type": "object"
+  },
+  "detection_threshold": {
+   "description": "Per-world Monte Carlo null max-statistic |z| threshold.",
+   "exclusiveMinimum": 0.0,
+   "title": "Detection Threshold",
+   "type": "number"
+  },
+  "difficulty_tier": {
+   "minimum": 0,
+   "title": "Difficulty Tier",
+   "type": "integer"
+  },
+  "groups": {
+   "items": {
+    "$ref": "#/$defs/TrueGroup"
+   },
+   "title": "Groups",
+   "type": "array"
+  },
+  "interface_version": {
+   "const": "1.0",
+   "default": "1.0",
+   "title": "Interface Version",
+   "type": "string"
+  },
+  "oracle_version": {
+   "title": "Oracle Version",
+   "type": "string"
+  },
+  "reference_cost": {
+   "minimum": 0.0,
+   "title": "Reference Cost",
+   "type": "number"
+  },
+  "reject_set": {
+   "default": [],
+   "items": {
+    "type": "string"
+   },
+   "title": "Reject Set",
+   "type": "array"
+  },
+  "strata": {
+   "additionalProperties": {
+    "type": "string"
+   },
+   "description": "Truth-independent feature strata (data type x correlation bin) for matched chance.",
+   "title": "Strata",
+   "type": "object"
+  },
+  "world_id": {
+   "maxLength": 96,
+   "minLength": 1,
+   "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+   "title": "World Id",
+   "type": "string"
+  }
+ },
+ "required": [
+  "world_id",
+  "difficulty_tier",
+  "groups",
+  "clusters",
+  "reference_cost",
+  "detection_threshold",
+  "oracle_version"
+ ],
+ "title": "AnswerKey",
+ "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+ "$defs": {
+  "ErrorCode": {
+   "enum": [
+    "unknown_world",
+    "unknown_feature",
+    "unknown_stratum",
+    "over_budget",
+    "action_not_available",
+    "episode_closed",
+    "request_conflict",
+    "cap_exceeded",
+    "scorecard_closed",
+    "invalid_payload"
+   ],
+   "title": "ErrorCode",
+   "type": "string"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "code": {
+   "$ref": "#/$defs/ErrorCode"
+  },
+  "message": {
+   "title": "Message",
+   "type": "string"
+  }
+ },
+ "required": [
+  "code",
+  "message"
+ ],
+ "title": "ArenaErrorPayload",
+ "type": "object"
+}

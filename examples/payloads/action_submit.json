@@ -1,0 +1,10 @@
+{
+ "action": {
+  "kind": "submit",
+  "ranking": [
+   "lbl1",
+   "bjp1"
+  ],
+  "request_id": "my-agent-3"
+ }
+}

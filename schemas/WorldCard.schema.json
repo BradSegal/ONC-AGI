@@ -1,0 +1,192 @@
+{
+ "$defs": {
+  "FeatureMeta": {
+   "additionalProperties": false,
+   "properties": {
+    "assay_price": {
+     "description": "Price per patient to measure this feature (sequential mode).",
+     "minimum": 0.0,
+     "title": "Assay Price",
+     "type": "number"
+    },
+    "data_type": {
+     "enum": [
+      "expression",
+      "copy_number",
+      "protein",
+      "clinical",
+      "mutation",
+      "lab",
+      "derived"
+     ],
+     "title": "Data Type",
+     "type": "string"
+    },
+    "feature_id": {
+     "maxLength": 64,
+     "minLength": 1,
+     "pattern": "^[A-Za-z0-9_.\\-]+$",
+     "title": "Feature Id",
+     "type": "string"
+    },
+    "timing": {
+     "$ref": "#/$defs/Timing",
+     "default": "baseline"
+    }
+   },
+   "required": [
+    "feature_id",
+    "data_type",
+    "assay_price"
+   ],
+   "title": "FeatureMeta",
+   "type": "object"
+  },
+  "Mode": {
+   "enum": [
+    "full_access",
+    "sequential"
+   ],
+   "title": "Mode",
+   "type": "string"
+  },
+  "NameVisibility": {
+   "enum": [
+    "real",
+    "fake",
+    "anonymous"
+   ],
+   "title": "NameVisibility",
+   "type": "string"
+  },
+  "PriceList": {
+   "additionalProperties": false,
+   "properties": {
+    "currency": {
+     "const": "USD",
+     "default": "USD",
+     "title": "Currency",
+     "type": "string"
+    },
+    "recruit_per_patient": {
+     "minimum": 0.0,
+     "title": "Recruit Per Patient",
+     "type": "number"
+    }
+   },
+   "required": [
+    "recruit_per_patient"
+   ],
+   "title": "PriceList",
+   "type": "object"
+  },
+  "Tier": {
+   "enum": [
+    "public_train",
+    "public_eval",
+    "private"
+   ],
+   "title": "Tier",
+   "type": "string"
+  },
+  "Timing": {
+   "description": "When a measurement is taken relative to the outcome.\n\n``post_outcome`` features are recorded after the outcome occurred; listing one\nas a driver is a leak and zeroes the world.",
+   "enum": [
+    "baseline",
+    "post_outcome"
+   ],
+   "title": "Timing",
+   "type": "string"
+  }
+ },
+ "additionalProperties": false,
+ "description": "Everything an agent may know about a world before acting.",
+ "properties": {
+  "budget": {
+   "description": "Truth-blind budget: the full revealable pool at published prices.",
+   "minimum": 0.0,
+   "title": "Budget",
+   "type": "number"
+  },
+  "features": {
+   "items": {
+    "$ref": "#/$defs/FeatureMeta"
+   },
+   "minItems": 1,
+   "title": "Features",
+   "type": "array"
+  },
+  "interface_version": {
+   "const": "1.0",
+   "default": "1.0",
+   "title": "Interface Version",
+   "type": "string"
+  },
+  "mode": {
+   "$ref": "#/$defs/Mode"
+  },
+  "n_pool": {
+   "description": "Revealable patients in this world.",
+   "exclusiveMinimum": 0,
+   "title": "N Pool",
+   "type": "integer"
+  },
+  "name_visibility": {
+   "$ref": "#/$defs/NameVisibility",
+   "default": "fake"
+  },
+  "outcome_type": {
+   "const": "binary",
+   "default": "binary",
+   "title": "Outcome Type",
+   "type": "string"
+  },
+  "premise": {
+   "default": "Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found.",
+   "title": "Premise",
+   "type": "string"
+  },
+  "prices": {
+   "$ref": "#/$defs/PriceList"
+  },
+  "strata": {
+   "default": [
+    "all"
+   ],
+   "items": {
+    "type": "string"
+   },
+   "title": "Strata",
+   "type": "array"
+  },
+  "stratum_sizes": {
+   "additionalProperties": {
+    "type": "integer"
+   },
+   "description": "Patients per stratum (truth-blind; recruiting beyond a stratum's size is refused).",
+   "title": "Stratum Sizes",
+   "type": "object"
+  },
+  "tier": {
+   "$ref": "#/$defs/Tier"
+  },
+  "world_id": {
+   "maxLength": 96,
+   "minLength": 1,
+   "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+   "title": "World Id",
+   "type": "string"
+  }
+ },
+ "required": [
+  "world_id",
+  "tier",
+  "mode",
+  "n_pool",
+  "features",
+  "prices",
+  "budget"
+ ],
+ "title": "WorldCard",
+ "type": "object"
+}

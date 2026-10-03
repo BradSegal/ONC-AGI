@@ -1,0 +1,516 @@
+{
+ "$defs": {
+  "AlignmentDiagnostics": {
+   "additionalProperties": false,
+   "properties": {
+    "acquisition_gap": {
+     "title": "Acquisition Gap",
+     "type": "number"
+    },
+    "analysis_regret": {
+     "title": "Analysis Regret",
+     "type": "number"
+    }
+   },
+   "required": [
+    "analysis_regret",
+    "acquisition_gap"
+   ],
+   "title": "AlignmentDiagnostics",
+   "type": "object"
+  },
+  "Interval": {
+   "additionalProperties": false,
+   "properties": {
+    "high": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "High"
+    },
+    "low": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Low"
+    }
+   },
+   "required": [
+    "low",
+    "high"
+   ],
+   "title": "Interval",
+   "type": "object"
+  },
+  "Tier": {
+   "enum": [
+    "public_train",
+    "public_eval",
+    "private"
+   ],
+   "title": "Tier",
+   "type": "string"
+  },
+  "TierSummary": {
+   "additionalProperties": false,
+   "description": "Per-tier summary; ``None`` where a metric is undefined (a tier lacking signal or null worlds).",
+   "properties": {
+    "difficulty_tier": {
+     "title": "Difficulty Tier",
+     "type": "integer"
+    },
+    "discovery_score": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Discovery Score"
+    },
+    "find": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Find"
+    },
+    "n_null": {
+     "title": "N Null",
+     "type": "integer"
+    },
+    "n_signal": {
+     "title": "N Signal",
+     "type": "integer"
+    },
+    "restraint": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Restraint"
+    }
+   },
+   "required": [
+    "difficulty_tier",
+    "n_signal",
+    "n_null",
+    "find",
+    "restraint",
+    "discovery_score"
+   ],
+   "title": "TierSummary",
+   "type": "object"
+  },
+  "WorldScore": {
+   "additionalProperties": false,
+   "properties": {
+    "abstained": {
+     "description": "Submitted an empty list (after neutral removal).",
+     "title": "Abstained",
+     "type": "boolean"
+    },
+    "chance_recovery": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Chance Recovery",
+     "type": "number"
+    },
+    "cost_usd": {
+     "anyOf": [
+      {
+       "minimum": 0.0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Cost Usd"
+    },
+    "difficulty_tier": {
+     "title": "Difficulty Tier",
+     "type": "integer"
+    },
+    "efficiency": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Efficiency",
+     "type": "number"
+    },
+    "find": {
+     "description": "Chance-normalised recovery q_w, clipped to [0, 1] (0 for null worlds).",
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Find",
+     "type": "number"
+    },
+    "find_exact": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Find Exact",
+     "type": "number"
+    },
+    "find_signed": {
+     "description": "Unclipped chance-normalised recovery; zero in expectation for any outcome-blind list (gates, intervals).",
+     "maximum": 1.0,
+     "title": "Find Signed",
+     "type": "number"
+    },
+    "is_null": {
+     "title": "Is Null",
+     "type": "boolean"
+    },
+    "leaked": {
+     "title": "Leaked",
+     "type": "boolean"
+    },
+    "listed": {
+     "minimum": 0,
+     "title": "Listed",
+     "type": "integer"
+    },
+    "raw_recovery": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Raw Recovery",
+     "type": "number"
+    },
+    "restrained": {
+     "description": "Empty after neutral removal on a null world.",
+     "title": "Restrained",
+     "type": "boolean"
+    },
+    "spent": {
+     "minimum": 0.0,
+     "title": "Spent",
+     "type": "number"
+    },
+    "tokens": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "LLM tokens spent on this world (standard harness).",
+     "title": "Tokens"
+    },
+    "world_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+     "title": "World Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "world_id",
+    "difficulty_tier",
+    "is_null",
+    "find",
+    "find_signed",
+    "find_exact",
+    "raw_recovery",
+    "chance_recovery",
+    "restrained",
+    "abstained",
+    "leaked",
+    "spent",
+    "efficiency",
+    "listed"
+   ],
+   "title": "WorldScore",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "abstention_on_signal": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Abstention On Signal"
+  },
+  "agent": {
+   "title": "Agent",
+   "type": "string"
+  },
+  "alignment": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/AlignmentDiagnostics"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null
+  },
+  "cost_usd": {
+   "anyOf": [
+    {
+     "minimum": 0.0,
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Cost Usd"
+  },
+  "discovery_score": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Displayed headline: Find x max(0, Restraint); None when undefined.",
+   "title": "Discovery Score"
+  },
+  "discovery_score_unfloored": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Discovery Score Unfloored"
+  },
+  "find": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Find"
+  },
+  "find_signed": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Mean unclipped Find over signal worlds (statistics and gates).",
+   "title": "Find Signed"
+  },
+  "harness": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Harness name and version that produced the run.",
+   "title": "Harness"
+  },
+  "interface_version": {
+   "const": "1.0",
+   "default": "1.0",
+   "title": "Interface Version",
+   "type": "string"
+  },
+  "interval": {
+   "$ref": "#/$defs/Interval"
+  },
+  "leak_rate": {
+   "title": "Leak Rate",
+   "type": "number"
+  },
+  "mean_data_cost": {
+   "title": "Mean Data Cost",
+   "type": "number"
+  },
+  "model": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Model identifier for LLM agents (standard track).",
+   "title": "Model"
+  },
+  "n_worlds": {
+   "title": "N Worlds",
+   "type": "integer"
+  },
+  "per_tier": {
+   "items": {
+    "$ref": "#/$defs/TierSummary"
+   },
+   "title": "Per Tier",
+   "type": "array"
+  },
+  "pool_commitment": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Committed manifest hash of the pool drawn from.",
+   "title": "Pool Commitment"
+  },
+  "restraint": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Chance-corrected (Youden's J), unfloored.",
+   "title": "Restraint"
+  },
+  "restraint_on_null": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Restraint On Null"
+  },
+  "scorecard_id": {
+   "title": "Scorecard Id",
+   "type": "string"
+  },
+  "strict_discovery_score": {
+   "anyOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Strict Discovery Score"
+  },
+  "tags": {
+   "default": [],
+   "items": {
+    "type": "string"
+   },
+   "title": "Tags",
+   "type": "array"
+  },
+  "tier": {
+   "$ref": "#/$defs/Tier"
+  },
+  "tokens": {
+   "anyOf": [
+    {
+     "minimum": 0,
+     "type": "integer"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Tokens"
+  },
+  "track": {
+   "enum": [
+    "standard",
+    "open",
+    "reference"
+   ],
+   "title": "Track",
+   "type": "string"
+  },
+  "versions": {
+   "additionalProperties": {
+    "type": "string"
+   },
+   "description": "Engine, scorer and oracle versions.",
+   "title": "Versions",
+   "type": "object"
+  },
+  "worlds": {
+   "default": [],
+   "description": "Per-world results, populated only for the public-train tier.",
+   "items": {
+    "$ref": "#/$defs/WorldScore"
+   },
+   "title": "Worlds",
+   "type": "array"
+  }
+ },
+ "required": [
+  "scorecard_id",
+  "track",
+  "agent",
+  "tier",
+  "n_worlds",
+  "discovery_score",
+  "discovery_score_unfloored",
+  "interval",
+  "find",
+  "find_signed",
+  "restraint",
+  "strict_discovery_score",
+  "leak_rate",
+  "abstention_on_signal",
+  "restraint_on_null",
+  "mean_data_cost",
+  "per_tier"
+ ],
+ "title": "Scorecard",
+ "type": "object"
+}

@@ -1,0 +1,82 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-wrong-type-full",
+ "difficulty_tier": 1,
+ "groups": [
+  {
+   "group_id": "g-wrong_data_type",
+   "role": "wrong_data_type",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "krw2",
+     "equivalence_set": [
+      "krw2"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "nwd4",
+  "tff5",
+  "gwr6"
+ ],
+ "clusters": {
+  "mjl1": 2000,
+  "fkp2": 1700,
+  "gmh1": 700,
+  "krw2": 100,
+  "mjt4": 1500,
+  "gwr6": 300,
+  "qbr5": 900,
+  "psl3": 1100,
+  "htd5": 1900,
+  "jmw1": 1200,
+  "gpp5": 2100,
+  "fzd3": 700,
+  "nwd4": 1300,
+  "qqp5": 2200,
+  "hnm2": 400,
+  "tgm5": 1400,
+  "lfx1": 1800,
+  "cjj6": 500,
+  "wcb6": 1600,
+  "bjr6": 1000,
+  "rtl6": 200,
+  "tff5": 800,
+  "fwr1": 600
+ },
+ "strata": {
+  "mjl1": "mixed",
+  "fkp2": "expression",
+  "gmh1": "expression",
+  "krw2": "mixed",
+  "mjt4": "mixed",
+  "gwr6": "lab|c0|d0",
+  "qbr5": "mixed",
+  "psl3": "lab|c0|d0",
+  "htd5": "expression",
+  "jmw1": "mixed",
+  "gpp5": "expression",
+  "fzd3": "expression",
+  "nwd4": "lab|c0|d0",
+  "qqp5": "expression",
+  "hnm2": "mixed",
+  "tgm5": "mixed",
+  "lfx1": "expression",
+  "cjj6": "mixed",
+  "wcb6": "mixed",
+  "bjr6": "expression",
+  "rtl6": "expression",
+  "tff5": "lab|c0|d0",
+  "fwr1": "expression"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 3.1584096446142698,
+ "oracle_version": "toy-1-by-construction"
+}

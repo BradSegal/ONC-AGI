@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --group dev
+      - name: Format, lint and types
+        run: |
+          uv run black --check .
+          uv run ruff check .
+          uv run mypy src
+      - name: Tests
+        run: uv run pytest --cov --cov-report=term
+      - name: Generated artefacts are current
+        run: |
+          uv run python tools/build_toy.py
+          uv run python tools/gen_contract.py
+          git diff --exit-code
+      - name: Release scan
+        run: uv run python tools/scan_release.py
+      - name: Clean-consumer install and smoke
+        run: |
+          uv build --wheel
+          python -m venv "$RUNNER_TEMP/consumer"
+          "$RUNNER_TEMP/consumer/bin/pip" install dist/*.whl
+          cd "$RUNNER_TEMP" && "$RUNNER_TEMP/consumer/bin/onc-agi" smoke

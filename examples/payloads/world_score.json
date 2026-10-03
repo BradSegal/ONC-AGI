@@ -1,0 +1,18 @@
+{
+ "abstained": false,
+ "chance_recovery": 0.075,
+ "cost_usd": null,
+ "difficulty_tier": 0,
+ "efficiency": 1.0,
+ "find": 0.0,
+ "find_exact": 0.0,
+ "find_signed": -0.08108108108108107,
+ "is_null": false,
+ "leaked": true,
+ "listed": 2,
+ "raw_recovery": 1.0,
+ "restrained": false,
+ "spent": 294.0,
+ "tokens": null,
+ "world_id": "toy-driver-seq"
+}

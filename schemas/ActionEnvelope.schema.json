@@ -1,0 +1,171 @@
+{
+ "$defs": {
+  "Assay": {
+   "additionalProperties": false,
+   "properties": {
+    "feature_ids": {
+     "items": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.\\-]+$",
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Feature Ids",
+     "type": "array"
+    },
+    "kind": {
+     "const": "assay",
+     "default": "assay",
+     "title": "Kind",
+     "type": "string"
+    },
+    "request_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "title": "Request Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "request_id",
+    "feature_ids"
+   ],
+   "title": "Assay",
+   "type": "object"
+  },
+  "Recruit": {
+   "additionalProperties": false,
+   "properties": {
+    "count": {
+     "exclusiveMinimum": 0,
+     "maximum": 100000,
+     "title": "Count",
+     "type": "integer"
+    },
+    "kind": {
+     "const": "recruit",
+     "default": "recruit",
+     "title": "Kind",
+     "type": "string"
+    },
+    "request_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "title": "Request Id",
+     "type": "string"
+    },
+    "stratum": {
+     "default": "all",
+     "title": "Stratum",
+     "type": "string"
+    }
+   },
+   "required": [
+    "request_id",
+    "count"
+   ],
+   "title": "Recruit",
+   "type": "object"
+  },
+  "Reset": {
+   "additionalProperties": false,
+   "properties": {
+    "kind": {
+     "const": "reset",
+     "default": "reset",
+     "title": "Kind",
+     "type": "string"
+    },
+    "request_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "title": "Request Id",
+     "type": "string"
+    },
+    "world_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+     "title": "World Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "request_id",
+    "world_id"
+   ],
+   "title": "Reset",
+   "type": "object"
+  },
+  "Submit": {
+   "additionalProperties": false,
+   "properties": {
+    "kind": {
+     "const": "submit",
+     "default": "submit",
+     "title": "Kind",
+     "type": "string"
+    },
+    "ranking": {
+     "items": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.\\-]+$",
+      "type": "string"
+     },
+     "maxItems": 100000,
+     "title": "Ranking",
+     "type": "array"
+    },
+    "request_id": {
+     "maxLength": 96,
+     "minLength": 1,
+     "title": "Request Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "request_id",
+    "ranking"
+   ],
+   "title": "Submit",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "description": "Wire wrapper so a single endpoint can accept any action.",
+ "properties": {
+  "action": {
+   "discriminator": {
+    "mapping": {
+     "assay": "#/$defs/Assay",
+     "recruit": "#/$defs/Recruit",
+     "reset": "#/$defs/Reset",
+     "submit": "#/$defs/Submit"
+    },
+    "propertyName": "kind"
+   },
+   "oneOf": [
+    {
+     "$ref": "#/$defs/Reset"
+    },
+    {
+     "$ref": "#/$defs/Recruit"
+    },
+    {
+     "$ref": "#/$defs/Assay"
+    },
+    {
+     "$ref": "#/$defs/Submit"
+    }
+   ],
+   "title": "Action"
+  }
+ },
+ "required": [
+  "action"
+ ],
+ "title": "ActionEnvelope",
+ "type": "object"
+}

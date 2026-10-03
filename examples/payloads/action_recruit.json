@@ -1,0 +1,8 @@
+{
+ "action": {
+  "count": 6,
+  "kind": "recruit",
+  "request_id": "my-agent-1",
+  "stratum": "all"
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-confounder-seq",
+ "difficulty_tier": 0,
+ "groups": [
+  {
+   "group_id": "g-observed_confounder",
+   "role": "observed_confounder",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "rsg5",
+     "equivalence_set": [
+      "rsg5"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "rqh9",
+  "nlz6",
+  "czd1"
+ ],
+ "clusters": {
+  "hvg8": 700,
+  "rmg9": 600,
+  "mwq8": 1400,
+  "xdf1": 1200,
+  "wlk7": 2000,
+  "bcd5": 100,
+  "lhk1": 300,
+  "ltj3": 1900,
+  "sgr7": 1100,
+  "czd1": 1300,
+  "npr7": 400,
+  "qsr2": 2100,
+  "xmt3": 2200,
+  "nlz6": 1600,
+  "qvs9": 600,
+  "zhk8": 500,
+  "rsg5": 1700,
+  "wsc5": 1500,
+  "zxq3": 900,
+  "svg1": 200,
+  "rqh9": 800,
+  "mhs7": 1000,
+  "dvg6": 1800
+ },
+ "strata": {
+  "hvg8": "mixed",
+  "rmg9": "expression",
+  "mwq8": "mixed",
+  "xdf1": "mixed",
+  "wlk7": "mixed",
+  "bcd5": "mixed",
+  "lhk1": "expression",
+  "ltj3": "expression",
+  "sgr7": "expression",
+  "czd1": "lab|c0|d0",
+  "npr7": "expression",
+  "qsr2": "mixed",
+  "xmt3": "lab|c0|d0",
+  "nlz6": "lab|c0|d0",
+  "qvs9": "expression",
+  "zhk8": "expression",
+  "rsg5": "mixed",
+  "wsc5": "mixed",
+  "zxq3": "mixed",
+  "svg1": "expression",
+  "rqh9": "lab|c0|d0",
+  "mhs7": "expression",
+  "dvg6": "expression"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 3.03820603838254,
+ "oracle_version": "toy-1-by-construction"
+}

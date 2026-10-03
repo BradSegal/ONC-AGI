@@ -1,0 +1,82 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-confounder-full",
+ "difficulty_tier": 0,
+ "groups": [
+  {
+   "group_id": "g-observed_confounder",
+   "role": "observed_confounder",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "pgp2",
+     "equivalence_set": [
+      "pgp2"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "hrm7",
+  "gtw3",
+  "czj6"
+ ],
+ "clusters": {
+  "xnw5": 300,
+  "qzh8": 1100,
+  "pgp2": 2100,
+  "pkp4": 2000,
+  "jmp9": 100,
+  "dmm7": 900,
+  "ksn1": 500,
+  "zgl6": 1200,
+  "czj6": 1400,
+  "dmf4": 2000,
+  "cln8": 400,
+  "hkw1": 1700,
+  "vfl8": 200,
+  "lpp7": 700,
+  "tjt6": 600,
+  "rfw4": 1000,
+  "tfr8": 800,
+  "rpn1": 1800,
+  "wzt7": 1600,
+  "czx9": 1900,
+  "hrm7": 1300,
+  "psz4": 2200,
+  "gtw3": 1500
+ },
+ "strata": {
+  "xnw5": "mixed",
+  "qzh8": "expression",
+  "pgp2": "mixed",
+  "pkp4": "expression",
+  "jmp9": "expression",
+  "dmm7": "expression",
+  "ksn1": "expression",
+  "zgl6": "mixed",
+  "czj6": "lab|c0|d0",
+  "dmf4": "expression",
+  "cln8": "mixed",
+  "hkw1": "mixed",
+  "vfl8": "mixed",
+  "lpp7": "mixed",
+  "tjt6": "mixed",
+  "rfw4": "expression",
+  "tfr8": "mixed",
+  "rpn1": "expression",
+  "wzt7": "lab|c0|d0",
+  "czx9": "expression",
+  "hrm7": "lab|c0|d0",
+  "psz4": "expression",
+  "gtw3": "lab|c0|d0"
+ },
+ "reference_cost": 17280.0,
+ "detection_threshold": 3.029049517797994,
+ "oracle_version": "toy-1-by-construction"
+}

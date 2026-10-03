@@ -1,0 +1,7 @@
+{
+ "action": {
+  "kind": "reset",
+  "request_id": "my-agent-0",
+  "world_id": "toy-driver-seq"
+ }
+}

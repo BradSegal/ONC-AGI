@@ -1,0 +1,218 @@
+{
+ "description": "Runtime files exported from the source of record; each hash identifies the exact bytes.",
+ "tree_sha256": "111a5a28dabdb67f0ac4a05a272efba65f919239ea700e40fe4a9a273a0e7f4c",
+ "files": [
+  {
+   "path": "src/onc_agi/__init__.py",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/onc_agi/adapters/__init__.py",
+   "sha256": "6b0b0ce82a25dfc0115df3f9da8647d7cd2dc56818077bf51ae195a7642a1a18"
+  },
+  {
+   "path": "src/onc_agi/adapters/agents/__init__.py",
+   "sha256": "61b90f9f21d07c028ba8ee130d29583301ad5533b9ad492a9a3b1dfb559cd104"
+  },
+  {
+   "path": "src/onc_agi/adapters/agents/baselines.py",
+   "sha256": "b29df9f55f09ad6ed396b08601e1786bb3f031fd2789aff9b5823dbf49f868b3"
+  },
+  {
+   "path": "src/onc_agi/adapters/agents/cheaters.py",
+   "sha256": "72adf55e2bfcb13e894386a2eedbb60814323aa3a10422094bc026b0ee89c416"
+  },
+  {
+   "path": "src/onc_agi/adapters/cli.py",
+   "sha256": "7c371db1d43f8bcbaa78083577f85b5f6ca9a0f8ac7700ba30a211af25ed351b"
+  },
+  {
+   "path": "src/onc_agi/adapters/client.py",
+   "sha256": "09c8026b543d2f2edfa7e99cc66e0864042cdf64b46b6b0d967e2315e64f8591"
+  },
+  {
+   "path": "src/onc_agi/adapters/conformance.py",
+   "sha256": "c8f36cbfd3837b31c9ffd20e1fd7afb386d874b3102cc0b21fbbe15119b6952d"
+  },
+  {
+   "path": "src/onc_agi/adapters/http.py",
+   "sha256": "6d252fbf0d0934674eab5f94ad5ca4c7d313cc59a2716f95426117bed991d952"
+  },
+  {
+   "path": "src/onc_agi/adapters/inspect_task.py",
+   "sha256": "e091890114f08e80358cae6a46aed420769d2400eb92c67c7216153e78a0f2fc"
+  },
+  {
+   "path": "src/onc_agi/core/__init__.py",
+   "sha256": "41563d71bde6e397c7d92ae66af375db495aaeef2e802ef7f6cf940513e509b4"
+  },
+  {
+   "path": "src/onc_agi/core/digest.py",
+   "sha256": "30018bd75404c1723e172d388b58de91fc92f1d92028442c2af1023771f53f76"
+  },
+  {
+   "path": "src/onc_agi/core/errors.py",
+   "sha256": "92798a7254187b2859c42063da3a77faad31874c0627df25f7f12bac0e27f80c"
+  },
+  {
+   "path": "src/onc_agi/core/ports.py",
+   "sha256": "0304d5d8e22711addf66d43535b10e241338a388875a13586ced4801ccabf99d"
+  },
+  {
+   "path": "src/onc_agi/core/schema.py",
+   "sha256": "1a9cbadd94e569c4418dc3fafcca6527c9684c43541fd074ad80012f19691e95"
+  },
+  {
+   "path": "src/onc_agi/core/world.py",
+   "sha256": "a2cfb233b565e18384a3467dfc8097a76a7c62e0a6c3b2fad3538439b82fcc78"
+  },
+  {
+   "path": "src/onc_agi/infra/__init__.py",
+   "sha256": "a99ddf60b3217bc346d180c9b7583ead7e499e7cc3da9cc222ead250c816d3d9"
+  },
+  {
+   "path": "src/onc_agi/infra/bundles.py",
+   "sha256": "d54d7ef9a5b3ad8dc6bf0bc1075cbac68d8a986fcd4d80e29f70ba52ddd563d1"
+  },
+  {
+   "path": "src/onc_agi/infra/ledger.py",
+   "sha256": "452ee0d3d462fa5d3d28ad1bdf2e83e05190baf3a582ab7dc3012d0e93b0e754"
+  },
+  {
+   "path": "src/onc_agi/infra/recorder.py",
+   "sha256": "e3e7d978e9488809c5d64254ba5a162b837ee1f594172d00ed276fccd427c29f"
+  },
+  {
+   "path": "src/onc_agi/services/__init__.py",
+   "sha256": "9bd1fbdef7df5ac22df8e30cd2da408786c8dde5724af40f78285fa0805ac26c"
+  },
+  {
+   "path": "src/onc_agi/services/alignment.py",
+   "sha256": "f990b5b74330a984b381a96b8b90e5edb685c29c37693646db7a4e6a26567353"
+  },
+  {
+   "path": "src/onc_agi/services/engine.py",
+   "sha256": "dab16837a79d5ff2a779aa4dc6c7503ad801ce9fc4be5e84bb0f08aec37b48b1"
+  },
+  {
+   "path": "src/onc_agi/services/kit.py",
+   "sha256": "52f4ae8afd94d79869ac6de69677f391495a84bf1f84e010f82000c074535b48"
+  },
+  {
+   "path": "src/onc_agi/services/replay.py",
+   "sha256": "a059274410cd8ad8c00d347d261e65bbb9470dea698b16186b696f2256808cbb"
+  },
+  {
+   "path": "src/onc_agi/services/scorecards.py",
+   "sha256": "f959487f01f064eeb183589bcd5e1eb98c6c90f948aa3c050bf9c2e3c87caead"
+  },
+  {
+   "path": "src/onc_agi/services/scoring.py",
+   "sha256": "f4ec822cadf59a214ad351c6bd77c027209d0036bdf97c2ad1e8ba36aa06d393"
+  },
+  {
+   "path": "src/onc_agi/adapters/sandbox/Dockerfile",
+   "sha256": "f7b52102f4fbfbe07108164f14b674ebf196ca5a694e04f86cc860e0ae71d8be"
+  },
+  {
+   "path": "src/onc_agi/adapters/sandbox/compose.yaml",
+   "sha256": "e398e845c5dee48d85495eb63efc1e42c16bdfd05e8ca43638238a36082876c2"
+  },
+  {
+   "path": "tests/runtime/adversarial/test_gaming_strategies.py",
+   "sha256": "6bd1b59569967037395ba58bc7df325c98e657d1ebef8d71aec7f1530626a036"
+  },
+  {
+   "path": "tests/runtime/arena_factories.py",
+   "sha256": "632ad3ef1c728c7a9dd69bd2af857f32ce4f27943c782e21ed629f87784f7e2a"
+  },
+  {
+   "path": "tests/runtime/conftest.py",
+   "sha256": "be4279601fd325ebb813528b1848191fa814915801df4b3658825b31c32e4695"
+  },
+  {
+   "path": "tests/runtime/e2e/test_cli_workflows.py",
+   "sha256": "7672862f039d4fbe74dcb940465dc15aadd0a895b106d1e2f4e19b6e4f7670b5"
+  },
+  {
+   "path": "tests/runtime/integration/test_bundles_io.py",
+   "sha256": "4f137e80680bd01ea2ba234e3fa60f7c035140b1171d263022bc817dce7f00e2"
+  },
+  {
+   "path": "tests/runtime/integration/test_cli_inprocess.py",
+   "sha256": "42dfddd1d62c94dee11cb5562985670d8da5e705435517c142cbb470283bff50"
+  },
+  {
+   "path": "tests/runtime/integration/test_http_api.py",
+   "sha256": "9ec099f6dfe05ce3739d042db91f170047c69948f532970d915e661c1e2cd220"
+  },
+  {
+   "path": "tests/runtime/integration/test_inspect_harness.py",
+   "sha256": "61a42a40d7d8843056580f4dc493a53786ddf302ef533133b5b63befedf22051"
+  },
+  {
+   "path": "tests/runtime/statistical/test_score_chance_properties.py",
+   "sha256": "11ad32769e3c7b67c2f9450a35694e4db3ef2199100494d2e277aec58c06003f"
+  },
+  {
+   "path": "tests/runtime/statistical/test_scoring_latency.py",
+   "sha256": "630483e8cda0d52d51ca1af91ce203e42c936c1e433088464979039baa4d8059"
+  },
+  {
+   "path": "tests/runtime/unit/test_agents.py",
+   "sha256": "7e425e32e5412ed8de3e8fc72d5f28be451c06ba2ed008f6e3360f0ae9fad472"
+  },
+  {
+   "path": "tests/runtime/unit/test_alignment.py",
+   "sha256": "24f9f38a0e95406dce3516d8d1b618e68f80f4e8213c1717919e489e4cb02bff"
+  },
+  {
+   "path": "tests/runtime/unit/test_architecture.py",
+   "sha256": "2d62f20a011e2ccf3ac6067c5e69a89165b2c409e359729d0086c284c2980993"
+  },
+  {
+   "path": "tests/runtime/unit/test_contract.py",
+   "sha256": "920b5532557aa37959ce460e2f5d3471aa13d82af2711ac9ba7cfbb732a044de"
+  },
+  {
+   "path": "tests/runtime/unit/test_engine.py",
+   "sha256": "45af87eceda5b03a0fdbe07316585cdefc2964ce758ad70793399df9f2b62f9f"
+  },
+  {
+   "path": "tests/runtime/unit/test_interface_doc.py",
+   "sha256": "d6b04572687e15b5c8df6927b04f1a7020394bd1be7e2ff3a7565fcfd3c0849d"
+  },
+  {
+   "path": "tests/runtime/unit/test_kit_and_replay.py",
+   "sha256": "6c1facd4f85594d487644efaa2cdbb7428ed509819c86afdd784843b46b9303b"
+  },
+  {
+   "path": "tests/runtime/unit/test_scorecard_service.py",
+   "sha256": "7a7591118d40b151a79a893a78584ffb47be374461e492832cb04da1457711da"
+  },
+  {
+   "path": "tests/runtime/unit/test_scoring_aggregate.py",
+   "sha256": "58c4d6dc6bdfa9be50b8b17665bbcdcadd47ce50f29fbd3c2dc2aff9bb77785d"
+  },
+  {
+   "path": "tests/runtime/unit/test_scoring_chance.py",
+   "sha256": "6236d9ad616a56d73187ca564aac12d821ed84b329d97b4b2fbb09eeb3a08c9e"
+  },
+  {
+   "path": "tests/runtime/unit/test_scoring_spec.py",
+   "sha256": "9280c2faa4b5e0cd9fc827cf358c5e6340a268d45e508987ab27ac10faceb3aa"
+  },
+  {
+   "path": "tests/runtime/unit/test_scoring_world.py",
+   "sha256": "5ff6bef6b836f0ca4e5d666a5c9109799dd322ddb721a3e8ab9c10b0745baec0"
+  },
+  {
+   "path": "docs/interface.md",
+   "sha256": "65f7d710e411706aaa2babaf6ad8e32e7d9d6d123564ee05e84caa18eb16c5bd"
+  },
+  {
+   "path": "docs/scoring.md",
+   "sha256": "203ee5c39df7b2a18e63759ece1c377d351cf94199e5014bc5114acb315ad7f0"
+  }
+ ]
+}

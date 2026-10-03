@@ -1,0 +1,82 @@
+{
+ "interface_version": "1.0",
+ "world_id": "toy-driver-full",
+ "difficulty_tier": 0,
+ "groups": [
+  {
+   "group_id": "g-generating",
+   "role": "generating",
+   "label": "recoverable",
+   "credit_rule": "single",
+   "underdetermined": false,
+   "parts": [
+    {
+     "true_feature": "zhj2",
+     "equivalence_set": [
+      "zhj2"
+     ],
+     "exact_recoverable": true,
+     "weight": 1.0
+    }
+   ]
+  }
+ ],
+ "reject_set": [
+  "fcc1",
+  "vgk2",
+  "bhh4"
+ ],
+ "clusters": {
+  "hvj2": 2100,
+  "lbv5": 1700,
+  "mdp1": 1400,
+  "rzm1": 2000,
+  "jfn6": 300,
+  "gqw2": 800,
+  "zhj2": 1200,
+  "xmw9": 1800,
+  "bhh4": 1600,
+  "wbk5": 100,
+  "wvn1": 600,
+  "rvq2": 1300,
+  "hrr3": 1100,
+  "lxg5": 700,
+  "pww9": 1000,
+  "fcc1": 1900,
+  "smw9": 400,
+  "vcs2": 2200,
+  "krj6": 200,
+  "vgk2": 900,
+  "jkx9": 500,
+  "jdl4": 1000,
+  "fgf9": 1500
+ },
+ "strata": {
+  "hvj2": "lab|c0|d0",
+  "lbv5": "expression",
+  "mdp1": "mixed",
+  "rzm1": "mixed",
+  "jfn6": "expression",
+  "gqw2": "expression",
+  "zhj2": "expression",
+  "xmw9": "mixed",
+  "bhh4": "lab|c0|d0",
+  "wbk5": "expression",
+  "wvn1": "expression",
+  "rvq2": "mixed",
+  "hrr3": "mixed",
+  "lxg5": "mixed",
+  "pww9": "expression",
+  "fcc1": "lab|c0|d0",
+  "smw9": "mixed",
+  "vcs2": "mixed",
+  "krj6": "expression",
+  "vgk2": "lab|c0|d0",
+  "jkx9": "mixed",
+  "jdl4": "expression",
+  "fgf9": "expression"
+ },
+ "reference_cost": 12960.0,
+ "detection_threshold": 2.916333565779289,
+ "oracle_version": "toy-1-by-construction"
+}

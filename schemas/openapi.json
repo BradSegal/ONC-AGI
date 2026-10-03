@@ -1,0 +1,1330 @@
+{
+ "components": {
+  "schemas": {
+   "ActionEnvelope": {
+    "additionalProperties": false,
+    "description": "Wire wrapper so a single endpoint can accept any action.",
+    "properties": {
+     "action": {
+      "discriminator": {
+       "mapping": {
+        "assay": "#/components/schemas/Assay",
+        "recruit": "#/components/schemas/Recruit",
+        "reset": "#/components/schemas/Reset",
+        "submit": "#/components/schemas/Submit"
+       },
+       "propertyName": "kind"
+      },
+      "oneOf": [
+       {
+        "$ref": "#/components/schemas/Reset"
+       },
+       {
+        "$ref": "#/components/schemas/Recruit"
+       },
+       {
+        "$ref": "#/components/schemas/Assay"
+       },
+       {
+        "$ref": "#/components/schemas/Submit"
+       }
+      ],
+      "title": "Action"
+     }
+    },
+    "required": [
+     "action"
+    ],
+    "title": "ActionEnvelope",
+    "type": "object"
+   },
+   "AlignmentDiagnostics": {
+    "additionalProperties": false,
+    "properties": {
+     "acquisition_gap": {
+      "title": "Acquisition Gap",
+      "type": "number"
+     },
+     "analysis_regret": {
+      "title": "Analysis Regret",
+      "type": "number"
+     }
+    },
+    "required": [
+     "analysis_regret",
+     "acquisition_gap"
+    ],
+    "title": "AlignmentDiagnostics",
+    "type": "object"
+   },
+   "Assay": {
+    "additionalProperties": false,
+    "properties": {
+     "feature_ids": {
+      "items": {
+       "maxLength": 64,
+       "minLength": 1,
+       "pattern": "^[A-Za-z0-9_.\\-]+$",
+       "type": "string"
+      },
+      "minItems": 1,
+      "title": "Feature Ids",
+      "type": "array"
+     },
+     "kind": {
+      "const": "assay",
+      "default": "assay",
+      "title": "Kind",
+      "type": "string"
+     },
+     "request_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "request_id",
+     "feature_ids"
+    ],
+    "title": "Assay",
+    "type": "object"
+   },
+   "EpisodeStatus": {
+    "enum": [
+     "active",
+     "submitted"
+    ],
+    "title": "EpisodeStatus",
+    "type": "string"
+   },
+   "FeatureMeta": {
+    "additionalProperties": false,
+    "properties": {
+     "assay_price": {
+      "description": "Price per patient to measure this feature (sequential mode).",
+      "minimum": 0.0,
+      "title": "Assay Price",
+      "type": "number"
+     },
+     "data_type": {
+      "enum": [
+       "expression",
+       "copy_number",
+       "protein",
+       "clinical",
+       "mutation",
+       "lab",
+       "derived"
+      ],
+      "title": "Data Type",
+      "type": "string"
+     },
+     "feature_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.\\-]+$",
+      "title": "Feature Id",
+      "type": "string"
+     },
+     "timing": {
+      "$ref": "#/components/schemas/Timing",
+      "default": "baseline"
+     }
+    },
+    "required": [
+     "feature_id",
+     "data_type",
+     "assay_price"
+    ],
+    "title": "FeatureMeta",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "Interval": {
+    "additionalProperties": false,
+    "properties": {
+     "high": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "High"
+     },
+     "low": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Low"
+     }
+    },
+    "required": [
+     "low",
+     "high"
+    ],
+    "title": "Interval",
+    "type": "object"
+   },
+   "Mode": {
+    "enum": [
+     "full_access",
+     "sequential"
+    ],
+    "title": "Mode",
+    "type": "string"
+   },
+   "NameVisibility": {
+    "enum": [
+     "real",
+     "fake",
+     "anonymous"
+    ],
+    "title": "NameVisibility",
+    "type": "string"
+   },
+   "Observation": {
+    "additionalProperties": false,
+    "properties": {
+     "available_actions": {
+      "items": {
+       "enum": [
+        "recruit",
+        "assay",
+        "submit"
+       ],
+       "type": "string"
+      },
+      "title": "Available Actions",
+      "type": "array"
+     },
+     "budget": {
+      "title": "Budget",
+      "type": "number"
+     },
+     "interface_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "mode": {
+      "$ref": "#/components/schemas/Mode"
+     },
+     "revealed": {
+      "$ref": "#/components/schemas/RevealedData"
+     },
+     "spent": {
+      "minimum": 0.0,
+      "title": "Spent",
+      "type": "number"
+     },
+     "status": {
+      "$ref": "#/components/schemas/EpisodeStatus"
+     },
+     "step": {
+      "minimum": 0.0,
+      "title": "Step",
+      "type": "integer"
+     },
+     "world_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+      "title": "World Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "world_id",
+     "mode",
+     "step",
+     "status",
+     "budget",
+     "spent",
+     "available_actions",
+     "revealed"
+    ],
+    "title": "Observation",
+    "type": "object"
+   },
+   "OpenRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "agent": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Agent",
+      "type": "string"
+     },
+     "n_worlds": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 10000.0,
+      "title": "N Worlds",
+      "type": "integer"
+     },
+     "tags": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+     },
+     "tier": {
+      "$ref": "#/components/schemas/Tier"
+     },
+     "track": {
+      "default": "open",
+      "title": "Track",
+      "type": "string"
+     }
+    },
+    "required": [
+     "agent",
+     "tier",
+     "n_worlds"
+    ],
+    "title": "OpenRequest",
+    "type": "object"
+   },
+   "OpenResponse": {
+    "properties": {
+     "cards": {
+      "items": {
+       "$ref": "#/components/schemas/WorldCard"
+      },
+      "title": "Cards",
+      "type": "array"
+     },
+     "interface_version": {
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "scorecard_id": {
+      "title": "Scorecard Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "scorecard_id",
+     "cards"
+    ],
+    "title": "OpenResponse",
+    "type": "object"
+   },
+   "PriceList": {
+    "additionalProperties": false,
+    "properties": {
+     "currency": {
+      "const": "USD",
+      "default": "USD",
+      "title": "Currency",
+      "type": "string"
+     },
+     "recruit_per_patient": {
+      "minimum": 0.0,
+      "title": "Recruit Per Patient",
+      "type": "number"
+     }
+    },
+    "required": [
+     "recruit_per_patient"
+    ],
+    "title": "PriceList",
+    "type": "object"
+   },
+   "Recruit": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 100000.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "kind": {
+      "const": "recruit",
+      "default": "recruit",
+      "title": "Kind",
+      "type": "string"
+     },
+     "request_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+     },
+     "stratum": {
+      "default": "all",
+      "title": "Stratum",
+      "type": "string"
+     }
+    },
+    "required": [
+     "request_id",
+     "count"
+    ],
+    "title": "Recruit",
+    "type": "object"
+   },
+   "Reset": {
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "const": "reset",
+      "default": "reset",
+      "title": "Kind",
+      "type": "string"
+     },
+     "request_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+     },
+     "world_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+      "title": "World Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "request_id",
+     "world_id"
+    ],
+    "title": "Reset",
+    "type": "object"
+   },
+   "RevealedData": {
+    "additionalProperties": false,
+    "description": "Columnar revealed data. Missing cells are ``None``.",
+    "properties": {
+     "columns": {
+      "additionalProperties": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Columns",
+      "type": "object"
+     },
+     "outcome": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Outcome",
+      "type": "array"
+     },
+     "patient_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Patient Ids",
+      "type": "array"
+     },
+     "stratum": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Stratum",
+      "type": "array"
+     }
+    },
+    "required": [
+     "patient_ids",
+     "outcome",
+     "stratum",
+     "columns"
+    ],
+    "title": "RevealedData",
+    "type": "object"
+   },
+   "Scorecard": {
+    "additionalProperties": false,
+    "properties": {
+     "abstention_on_signal": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Abstention On Signal"
+     },
+     "agent": {
+      "title": "Agent",
+      "type": "string"
+     },
+     "alignment": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AlignmentDiagnostics"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "cost_usd": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Usd"
+     },
+     "discovery_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Displayed headline: Find x max(0, Restraint); None when undefined.",
+      "title": "Discovery Score"
+     },
+     "discovery_score_unfloored": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovery Score Unfloored"
+     },
+     "find": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Find"
+     },
+     "find_signed": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Mean unclipped Find over signal worlds (statistics and gates).",
+      "title": "Find Signed"
+     },
+     "harness": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Harness name and version that produced the run.",
+      "title": "Harness"
+     },
+     "interface_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "interval": {
+      "$ref": "#/components/schemas/Interval"
+     },
+     "leak_rate": {
+      "title": "Leak Rate",
+      "type": "number"
+     },
+     "mean_data_cost": {
+      "title": "Mean Data Cost",
+      "type": "number"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Model identifier for LLM agents (standard track).",
+      "title": "Model"
+     },
+     "n_worlds": {
+      "title": "N Worlds",
+      "type": "integer"
+     },
+     "per_tier": {
+      "items": {
+       "$ref": "#/components/schemas/TierSummary"
+      },
+      "title": "Per Tier",
+      "type": "array"
+     },
+     "pool_commitment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Committed manifest hash of the pool drawn from.",
+      "title": "Pool Commitment"
+     },
+     "restraint": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Chance-corrected (Youden's J), unfloored.",
+      "title": "Restraint"
+     },
+     "restraint_on_null": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Restraint On Null"
+     },
+     "scorecard_id": {
+      "title": "Scorecard Id",
+      "type": "string"
+     },
+     "strict_discovery_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Strict Discovery Score"
+     },
+     "tags": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+     },
+     "tier": {
+      "$ref": "#/components/schemas/Tier"
+     },
+     "tokens": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tokens"
+     },
+     "track": {
+      "enum": [
+       "standard",
+       "open",
+       "reference"
+      ],
+      "title": "Track",
+      "type": "string"
+     },
+     "versions": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Engine, scorer and oracle versions.",
+      "title": "Versions",
+      "type": "object"
+     },
+     "worlds": {
+      "default": [],
+      "description": "Per-world results, populated only for the public-train tier.",
+      "items": {
+       "$ref": "#/components/schemas/WorldScore"
+      },
+      "title": "Worlds",
+      "type": "array"
+     }
+    },
+    "required": [
+     "scorecard_id",
+     "track",
+     "agent",
+     "tier",
+     "n_worlds",
+     "discovery_score",
+     "discovery_score_unfloored",
+     "interval",
+     "find",
+     "find_signed",
+     "restraint",
+     "strict_discovery_score",
+     "leak_rate",
+     "abstention_on_signal",
+     "restraint_on_null",
+     "mean_data_cost",
+     "per_tier"
+    ],
+    "title": "Scorecard",
+    "type": "object"
+   },
+   "Submit": {
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "const": "submit",
+      "default": "submit",
+      "title": "Kind",
+      "type": "string"
+     },
+     "ranking": {
+      "items": {
+       "maxLength": 64,
+       "minLength": 1,
+       "pattern": "^[A-Za-z0-9_.\\-]+$",
+       "type": "string"
+      },
+      "maxItems": 100000,
+      "title": "Ranking",
+      "type": "array"
+     },
+     "request_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "request_id",
+     "ranking"
+    ],
+    "title": "Submit",
+    "type": "object"
+   },
+   "Tier": {
+    "enum": [
+     "public_train",
+     "public_eval",
+     "private"
+    ],
+    "title": "Tier",
+    "type": "string"
+   },
+   "TierSummary": {
+    "additionalProperties": false,
+    "description": "Per-tier summary; ``None`` where a metric is undefined (a tier lacking signal or null worlds).",
+    "properties": {
+     "difficulty_tier": {
+      "title": "Difficulty Tier",
+      "type": "integer"
+     },
+     "discovery_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovery Score"
+     },
+     "find": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Find"
+     },
+     "n_null": {
+      "title": "N Null",
+      "type": "integer"
+     },
+     "n_signal": {
+      "title": "N Signal",
+      "type": "integer"
+     },
+     "restraint": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Restraint"
+     }
+    },
+    "required": [
+     "difficulty_tier",
+     "n_signal",
+     "n_null",
+     "find",
+     "restraint",
+     "discovery_score"
+    ],
+    "title": "TierSummary",
+    "type": "object"
+   },
+   "Timing": {
+    "description": "When a measurement is taken relative to the outcome.\n\n``post_outcome`` features are recorded after the outcome occurred; listing one\nas a driver is a leak and zeroes the world.",
+    "enum": [
+     "baseline",
+     "post_outcome"
+    ],
+    "title": "Timing",
+    "type": "string"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "WorldCard": {
+    "additionalProperties": false,
+    "description": "Everything an agent may know about a world before acting.",
+    "properties": {
+     "budget": {
+      "description": "Truth-blind budget: the full revealable pool at published prices.",
+      "minimum": 0.0,
+      "title": "Budget",
+      "type": "number"
+     },
+     "features": {
+      "items": {
+       "$ref": "#/components/schemas/FeatureMeta"
+      },
+      "minItems": 1,
+      "title": "Features",
+      "type": "array"
+     },
+     "interface_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "mode": {
+      "$ref": "#/components/schemas/Mode"
+     },
+     "n_pool": {
+      "description": "Revealable patients in this world.",
+      "exclusiveMinimum": 0.0,
+      "title": "N Pool",
+      "type": "integer"
+     },
+     "name_visibility": {
+      "$ref": "#/components/schemas/NameVisibility",
+      "default": "fake"
+     },
+     "outcome_type": {
+      "const": "binary",
+      "default": "binary",
+      "title": "Outcome Type",
+      "type": "string"
+     },
+     "premise": {
+      "default": "Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found.",
+      "title": "Premise",
+      "type": "string"
+     },
+     "prices": {
+      "$ref": "#/components/schemas/PriceList"
+     },
+     "strata": {
+      "default": [
+       "all"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "title": "Strata",
+      "type": "array"
+     },
+     "stratum_sizes": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "description": "Patients per stratum (truth-blind; recruiting beyond a stratum's size is refused).",
+      "title": "Stratum Sizes",
+      "type": "object"
+     },
+     "tier": {
+      "$ref": "#/components/schemas/Tier"
+     },
+     "world_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+      "title": "World Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "world_id",
+     "tier",
+     "mode",
+     "n_pool",
+     "features",
+     "prices",
+     "budget"
+    ],
+    "title": "WorldCard",
+    "type": "object"
+   },
+   "WorldScore": {
+    "additionalProperties": false,
+    "properties": {
+     "abstained": {
+      "description": "Submitted an empty list (after neutral removal).",
+      "title": "Abstained",
+      "type": "boolean"
+     },
+     "chance_recovery": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Chance Recovery",
+      "type": "number"
+     },
+     "cost_usd": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Usd"
+     },
+     "difficulty_tier": {
+      "title": "Difficulty Tier",
+      "type": "integer"
+     },
+     "efficiency": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Efficiency",
+      "type": "number"
+     },
+     "find": {
+      "description": "Chance-normalised recovery q_w, clipped to [0, 1] (0 for null worlds).",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Find",
+      "type": "number"
+     },
+     "find_exact": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Find Exact",
+      "type": "number"
+     },
+     "find_signed": {
+      "description": "Unclipped chance-normalised recovery; zero in expectation for any outcome-blind list (gates, intervals).",
+      "maximum": 1.0,
+      "title": "Find Signed",
+      "type": "number"
+     },
+     "is_null": {
+      "title": "Is Null",
+      "type": "boolean"
+     },
+     "leaked": {
+      "title": "Leaked",
+      "type": "boolean"
+     },
+     "listed": {
+      "minimum": 0.0,
+      "title": "Listed",
+      "type": "integer"
+     },
+     "raw_recovery": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Raw Recovery",
+      "type": "number"
+     },
+     "restrained": {
+      "description": "Empty after neutral removal on a null world.",
+      "title": "Restrained",
+      "type": "boolean"
+     },
+     "spent": {
+      "minimum": 0.0,
+      "title": "Spent",
+      "type": "number"
+     },
+     "tokens": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "LLM tokens spent on this world (standard harness).",
+      "title": "Tokens"
+     },
+     "world_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+      "title": "World Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "world_id",
+     "difficulty_tier",
+     "is_null",
+     "find",
+     "find_signed",
+     "find_exact",
+     "raw_recovery",
+     "chance_recovery",
+     "restrained",
+     "abstained",
+     "leaked",
+     "spent",
+     "efficiency",
+     "listed"
+    ],
+    "title": "WorldScore",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "ONC-AGI",
+  "version": "1.0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/v1/health": {
+   "get": {
+    "operationId": "health_v1_health_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Health V1 Health Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Health"
+   }
+  },
+  "/v1/scorecards": {
+   "post": {
+    "operationId": "open_scorecard_v1_scorecards_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OpenRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OpenResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open Scorecard"
+   }
+  },
+  "/v1/scorecards/{sid}/close": {
+   "post": {
+    "operationId": "close_v1_scorecards__sid__close_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Scorecard"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Close"
+   }
+  },
+  "/v1/scorecards/{sid}/worlds/{wid}": {
+   "get": {
+    "operationId": "state_v1_scorecards__sid__worlds__wid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "wid",
+      "required": true,
+      "schema": {
+       "title": "Wid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Observation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "State"
+   }
+  },
+  "/v1/scorecards/{sid}/worlds/{wid}/actions": {
+   "post": {
+    "operationId": "act_v1_scorecards__sid__worlds__wid__actions_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "wid",
+      "required": true,
+      "schema": {
+       "title": "Wid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ActionEnvelope"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Observation"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Act"
+   }
+  }
+ }
+}

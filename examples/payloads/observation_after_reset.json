@@ -1,0 +1,20 @@
+{
+ "available_actions": [
+  "recruit",
+  "assay",
+  "submit"
+ ],
+ "budget": 25920.0,
+ "interface_version": "1.0",
+ "mode": "sequential",
+ "revealed": {
+  "columns": {},
+  "outcome": [],
+  "patient_ids": [],
+  "stratum": []
+ },
+ "spent": 0.0,
+ "status": "active",
+ "step": 1,
+ "world_id": "toy-driver-seq"
+}

@@ -1,0 +1,14 @@
+{
+ "action_json": "{\"kind\":\"submit\",\"request_id\":\"my-agent-3\",\"ranking\":[\"lbl1\",\"bjp1\"]}",
+ "action_kind": "submit",
+ "cost_usd": null,
+ "interface_version": "1.0",
+ "request_id": "my-agent-3",
+ "request_sha256": "2a72f89900db075bbec39f6c3c48c118d2e44827da36f19b94876d25f1fbf515",
+ "response_sha256": "50a7a14c4008329d3f1b69f6bbea84270402ebbaace9c400b0d82824315da5d9",
+ "scorecard_id": "sc-0000000000000000",
+ "spent": 294.0,
+ "step": 4,
+ "tokens": null,
+ "world_id": "toy-driver-seq"
+}

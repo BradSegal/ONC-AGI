@@ -1,0 +1,11 @@
+{
+ "action": {
+  "feature_ids": [
+   "lbl1",
+   "bjp1",
+   "mgp7"
+  ],
+  "kind": "assay",
+  "request_id": "my-agent-2"
+ }
+}

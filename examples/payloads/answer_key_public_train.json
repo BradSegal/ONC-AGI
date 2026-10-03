@@ -1,0 +1,83 @@
+{
+ "clusters": {
+  "bhh1": 1000,
+  "dpz6": 1500,
+  "fjj8": 200,
+  "frf4": 1700,
+  "gbm2": 1900,
+  "gqq6": 1100,
+  "hcn4": 800,
+  "hdc6": 1400,
+  "hst8": 600,
+  "jnd7": 1300,
+  "nhr3": 700,
+  "prw7": 700,
+  "pzp6": 300,
+  "sdz2": 2200,
+  "sgm3": 1600,
+  "sxf7": 1200,
+  "tbf1": 400,
+  "tbk5": 500,
+  "tdf8": 100,
+  "vfr2": 900,
+  "xbm5": 2000,
+  "xbr6": 1800,
+  "zww1": 2100
+ },
+ "detection_threshold": 2.978148790458494,
+ "difficulty_tier": 1,
+ "groups": [
+  {
+   "credit_rule": "single",
+   "group_id": "g-stand_in",
+   "label": "recoverable",
+   "parts": [
+    {
+     "equivalence_set": [
+      "prw7",
+      "nhr3"
+     ],
+     "exact_recoverable": false,
+     "true_feature": "prw7",
+     "weight": 1.0
+    }
+   ],
+   "role": "stand_in",
+   "underdetermined": false
+  }
+ ],
+ "interface_version": "1.0",
+ "oracle_version": "toy-1-by-construction",
+ "reference_cost": 17280.0,
+ "reject_set": [
+  "sdz2",
+  "vfr2",
+  "gbm2"
+ ],
+ "strata": {
+  "bhh1": "mixed",
+  "dpz6": "mixed",
+  "fjj8": "mixed",
+  "frf4": "mixed",
+  "gbm2": "lab|c0|d0",
+  "gqq6": "expression",
+  "hcn4": "mixed",
+  "hdc6": "expression",
+  "hst8": "mixed",
+  "jnd7": "expression",
+  "nhr3": "expression",
+  "prw7": "expression",
+  "pzp6": "expression",
+  "sdz2": "lab|c0|d0",
+  "sgm3": "lab|c0|d0",
+  "sxf7": "expression",
+  "tbf1": "mixed",
+  "tbk5": "mixed",
+  "tdf8": "expression",
+  "vfr2": "lab|c0|d0",
+  "xbm5": "mixed",
+  "xbr6": "expression",
+  "zww1": "expression"
+ },
+ "world_id": "toy-stand-in-full"
+}

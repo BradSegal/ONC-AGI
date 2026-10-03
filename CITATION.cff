@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use ONC-AGI, please cite it as below."
+title: "ONC-AGI: ARC-style biomarker discovery worlds"
+type: software
+authors:
+  - family-names: Segal
+    given-names: Bradley
+version: 1.0.0rc1
+date-released: 2026-10-03
+license: BSD-3-Clause
+repository-code: "https://github.com/BradSegal/ONC-AGI"
