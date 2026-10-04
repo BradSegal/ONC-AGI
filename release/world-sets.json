@@ -1,0 +1,62 @@
+{
+ "description": "World sets attached to each release. They live outside git: the release workflow downloads each archive and its companion id lists from source_release in this repository, refuses any file whose SHA-256 differs from the value pinned here, puts DATA-NOTICE.md first in each archive, and attaches the archives, the id lists unchanged, DATA-NOTICE.md and SHA256SUMS.",
+ "source_release": "v1.0.0rc4",
+ "sets": [
+  {
+   "asset": "onc-agi-public-train-full-access-1.0.0rc3.tar.gz",
+   "sha256": "c8c21c7403e48048df8cfd29f76f0e20d13b8e447f1598db1ad7517782a62701",
+   "companions": [
+    {
+     "asset": "onc-agi-public-train-full-access-1.0.0rc3-certified.txt",
+     "sha256": "9768cc280a40f726b64f68a6298b5e0fbc4fa94909fa1b9701a51fb43d9ac8ef"
+    },
+    {
+     "asset": "onc-agi-public-train-full-access-1.0.0rc3-excluded.txt",
+     "sha256": "e0ce1caf153820fc10c95b5adeadbfd087dc6964d062206aa47583dba7551613"
+    }
+   ]
+  },
+  {
+   "asset": "onc-agi-public-train-sequential-1.0.0rc3.tar.gz",
+   "sha256": "97f9021809032639a032be8794c289d5e08e8b79904942309666ccbd3499236b",
+   "companions": [
+    {
+     "asset": "onc-agi-public-train-sequential-1.0.0rc3-certified.txt",
+     "sha256": "83249b79efa1c3a4c08990e2d3b67c494c838c1f321dd9ba420a5db417bd2a0b"
+    },
+    {
+     "asset": "onc-agi-public-train-sequential-1.0.0rc3-excluded.txt",
+     "sha256": "56c899dcddae9485e5867f109f4de584b463071e1267d8f1e80b91291426be96"
+    }
+   ]
+  },
+  {
+   "asset": "onc-agi-public-train-expressive-full-access-1.0.0rc3.tar.gz",
+   "sha256": "a2617247ae875e3a63bd72ccfa034f6bb3a848cc5816b7ea38597cb4e893e957",
+   "companions": [
+    {
+     "asset": "onc-agi-public-train-expressive-full-access-1.0.0rc3-certified.txt",
+     "sha256": "101dc5f542625a4d42de9f9846ca551cda8078fe309c14ff8d2ea19af7599047"
+    },
+    {
+     "asset": "onc-agi-public-train-expressive-full-access-1.0.0rc3-excluded.txt",
+     "sha256": "63230dfd8c2dc17455546cf32338b33524a78c5de8b8b505a49960e5500b5314"
+    }
+   ]
+  },
+  {
+   "asset": "onc-agi-public-train-expressive-sequential-1.0.0rc3.tar.gz",
+   "sha256": "d654647577f8cc29436e1031ad483107882aaf97b534c58383a29c8fbe836b8f",
+   "companions": [
+    {
+     "asset": "onc-agi-public-train-expressive-sequential-1.0.0rc3-certified.txt",
+     "sha256": "22aed620deb575515c5a84bb548209a459ffb707525a1e044daa60fb70983ef1"
+    },
+    {
+     "asset": "onc-agi-public-train-expressive-sequential-1.0.0rc3-excluded.txt",
+     "sha256": "90854594df24fb8e167417a6c65fb81cf9aabd7b79d6f22ff13e4b1ab047bc10"
+    }
+   ]
+  }
+ ]
+}

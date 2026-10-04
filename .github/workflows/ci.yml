@@ -1,28 +1,42 @@
 name: ci
 
+# The release workflow builds assets only from a commit on which this workflow's
+# `checks` and `site` jobs both succeeded (tools/release_gate.py). Keep those job names;
+# `checks` is also the branch-protection required check.
+
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_call:
 
-permissions:
-  contents: read
+permissions: {}
+
+defaults:
+  run:
+    shell: bash # -eo pipefail
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ci-${{ github.ref }}
+  # Superseded pull-request runs are cancelled; every main commit keeps its own verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_LOCKED: "1"
 
 jobs:
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+          fetch-depth: 0 # the release scan reads the whole history
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.0"
           python-version: "3.12"
       - run: uv sync --locked --all-extras --group dev
       - name: Format, lint and types
@@ -47,13 +61,29 @@ jobs:
       - name: Release scan
         run: uv run python tools/scan_release.py
       - name: Dependency audit
-        run: uv run --locked pip-audit
+        run: uv run pip-audit
       - name: Build and verify distributions
         run: |
-          uv build --out-dir dist
-          uv run --locked python tools/check_package.py --dist dist
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          uv build --out-dir "$RUNNER_TEMP/dist"
+          uv run python tools/check_package.py --dist "$RUNNER_TEMP/dist"
+
+  site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: distributions
-          path: dist/*
-          if-no-files-found: error
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build # type-check, then bake src/data/*.json into static HTML

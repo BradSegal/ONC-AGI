@@ -1,0 +1,60 @@
+# Static analysis for ONC-AGI: rules for the defect classes this code can actually have.
+# The HTTP server and the agent kit take untrusted input; the release tools open archives that users
+# will extract. Run with: semgrep scan --config .semgrep.yml --metrics off --error
+rules:
+  - id: no-dynamic-code-execution
+    languages: [python]
+    severity: ERROR
+    message: eval/exec run arbitrary code; parse the input instead.
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+    paths:
+      exclude: ["tests/**"]
+
+  - id: no-shell-subprocess
+    languages: [python]
+    severity: ERROR
+    message: Shell command strings allow injection; pass an argument list without shell=True.
+    pattern-either:
+      - pattern: subprocess.$FN(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: no-unsafe-deserialisation
+    languages: [python]
+    severity: ERROR
+    message: pickle, marshal and full YAML loading execute code from the payload; use JSON or yaml.safe_load.
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: marshal.load(...)
+      - pattern: marshal.loads(...)
+      - pattern: yaml.load(...)
+      - pattern: yaml.unsafe_load(...)
+
+  - id: no-unfiltered-archive-extraction
+    languages: [python]
+    severity: ERROR
+    message: Extracting an archive without a filter allows path traversal; pass filter="data" or stream members.
+    patterns:
+      - pattern-either:
+          - pattern: $ARCHIVE.extractall(...)
+          - pattern: $ARCHIVE.extract(...)
+      - pattern-not: $ARCHIVE.extractall(..., filter=..., ...)
+      - pattern-not: $ARCHIVE.extract(..., filter=..., ...)
+
+  - id: no-disabled-tls-verification
+    languages: [python]
+    severity: ERROR
+    message: Disabling certificate verification exposes keys and scorecards to interception.
+    pattern-either:
+      - pattern: $CALL(..., verify=False, ...)
+      - pattern: ssl._create_unverified_context(...)
+
+  - id: no-insecure-temporary-file
+    languages: [python]
+    severity: ERROR
+    message: tempfile.mktemp is racy; use tempfile.mkstemp, NamedTemporaryFile or TemporaryDirectory.
+    pattern: tempfile.mktemp(...)
