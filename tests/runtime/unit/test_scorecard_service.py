@@ -415,3 +415,78 @@ def test_a_ledger_without_a_lock_is_still_accepted() -> None:
     assert not hasattr(ledger, "lock")
     svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=2)
     assert len(ledger.used(Tier.PUBLIC_EVAL)) == 2
+
+
+def test_a_fixed_eval_set_is_scored_whole_on_every_scorecard_and_marks_nothing_used() -> None:
+    svc, ledger, _ = service(fixed_eval_sets=True)
+    _, first = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL)
+    _, second = svc.open("key-bbbb", agent="b", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=10)
+    assert [c.world_id for c in first] == [c.world_id for c in second]
+    assert len(first) == 10 and ledger.used(Tier.PUBLIC_EVAL) == set()
+
+
+def test_a_fixed_eval_set_refuses_a_partial_draw_and_world_selection() -> None:
+    svc, _, _ = service(fixed_eval_sets=True)
+    with pytest.raises(ArenaError) as err:
+        svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=4)
+    assert err.value.code is ErrorCode.INVALID_PAYLOAD
+    with pytest.raises(ArenaError):
+        svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, world_ids=("public-eval-00",))
+
+
+def test_a_fixed_eval_set_can_be_scored_one_mode_at_a_time() -> None:
+    store = InMemoryStore()
+    for i in range(6):
+        mode = Mode.SEQUENTIAL if i % 2 else Mode.FULL_ACCESS
+        store.add(*planted_world(f"ev-{i}", signal=True, seed=i, n_pool=80, tier=Tier.PUBLIC_EVAL, mode=mode))
+    svc, _, _ = service(store, fixed_eval_sets=True)
+    _, cards = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, mode=Mode.SEQUENTIAL)
+    assert len(cards) == 3 and all(c.mode is Mode.SEQUENTIAL for c in cards)
+
+
+def test_a_fixed_eval_set_keeps_per_world_results_hidden_and_the_daily_cap() -> None:
+    svc, _, _ = service(fixed_eval_sets=True)
+    for _ in range(PUBLIC_EVAL_DAILY_CAP):
+        sid, _ = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL)
+    assert svc.close(sid).worlds == ()
+    with pytest.raises(ArenaError) as err:
+        svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL)
+    assert err.value.code is ErrorCode.CAP_EXCEEDED
+
+
+def test_caps_count_against_the_cap_identity_so_rotating_a_key_does_not_reset_them() -> None:
+    account = {"key-old-1": "acct-1", "key-new-1": "acct-1"}
+    svc, ledger, _ = service(tiered_store(40), cap_identity=account.__getitem__)
+    for _ in range(PUBLIC_EVAL_DAILY_CAP):
+        svc.open("key-old-1", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=1)
+    with pytest.raises(ArenaError) as err:
+        svc.open("key-new-1", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=1)
+    assert err.value.code is ErrorCode.CAP_EXCEEDED
+    assert set(k for k, _ in ledger.opened) == {"acct-1"}
+
+
+def test_allowed_keys_may_be_a_live_container() -> None:
+    class Issued:
+        def __init__(self) -> None:
+            self.keys: set[str] = set()
+
+        def __contains__(self, key: object) -> bool:
+            return key in self.keys
+
+    issued = Issued()
+    svc, _, _ = service(allowed_keys=issued)
+    with pytest.raises(ArenaError):
+        svc.open("key-late-1", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+    issued.keys.add("key-late-1")
+    svc.open("key-late-1", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=1)
+
+
+def test_progress_counts_started_and_submitted_worlds_without_answer_data() -> None:
+    svc, _, _ = service()
+    sid, cards = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_EVAL, n_worlds=3)
+    svc.act(sid, cards[0].world_id, Submit(request_id="r1", ranking=()), api_key="key-aaaa")
+    before = svc.progress(sid)
+    assert (before.n_worlds, before.started, before.submitted, before.closed) == (3, 1, 1, None)
+    svc.close(sid)
+    after = svc.progress(sid)
+    assert after.closed is not None and after.closed.worlds == ()

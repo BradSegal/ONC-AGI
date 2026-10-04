@@ -228,7 +228,7 @@ $$<HTMLButtonElement>("[data-copy]").forEach((button) =>
 
 /* ------------------------------------------------------------------ masthead */
 
-const links = $$<HTMLAnchorElement>(".masthead__nav a");
+const links = $$<HTMLAnchorElement>('.masthead__nav a[href^="#"]');
 const navObserver = new IntersectionObserver(
   (entries) =>
     entries.forEach((e) => {

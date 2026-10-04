@@ -146,7 +146,7 @@ def test_play_n_plays_the_reported_sample_and_a_published_list_replays_it(
         (["play", "--agent", "random", "--url", "http://arena.test"], "needs a key"),
         (["play", "--agent", "random", "--url", "http://a.test", "--store", "s"], "not both"),
         (["play", "--agent", "llm"], "--agent llm needs --profile"),
-        (["play", "--agent", "random", "--tier", "public_eval"], "give --n"),
+        (["play", "--agent", "random", "--tier", "public_eval"], "give exactly one of n_worlds"),
     ],
 )
 def test_play_refuses_bad_requests_before_opening_a_scorecard(

@@ -1,6 +1,6 @@
 {
  "description": "Runtime files exported from the source of record; each hash identifies the exact bytes.",
- "tree_sha256": "f92585c862dc2ba472b31068a36e6018eb2fd08a1fdc53668fdd5111be3d4e22",
+ "tree_sha256": "c8876a73dffc8e134cf32d269b36e8aefa28abe33a245ed18a91db46289bba48",
  "files": [
   {
    "path": "src/onc_agi/__init__.py",
@@ -36,7 +36,7 @@
   },
   {
    "path": "src/onc_agi/adapters/cli.py",
-   "sha256": "4301445e0b57595021ca0ae5f944a359cbb767cc031788509ba9f0c8cb40f3d8"
+   "sha256": "681bc5931654a920c04730636c1652bb9c486077ba47862268a62936fc81c7bc"
   },
   {
    "path": "src/onc_agi/adapters/client.py",
@@ -148,7 +148,7 @@
   },
   {
    "path": "src/onc_agi/services/scorecards.py",
-   "sha256": "9c6082b066a5021159b8e61dc6ede84b0ecb71f8851e7ab35420869fe3a4a8d6"
+   "sha256": "083b415034724c738ce5957c12fcb719698f497be94f5c67a29ddfe5d97ab5a9"
   },
   {
    "path": "src/onc_agi/services/scoring.py",
@@ -196,7 +196,7 @@
   },
   {
    "path": "tests/runtime/integration/test_cli_play.py",
-   "sha256": "08adde154b5b180605b8ab10bf28a6b055127fcf92709248bac4b74f5a9c870f"
+   "sha256": "5c6811fef3dfabe862e325d864c706854482607b8778773b31186203c839d211"
   },
   {
    "path": "tests/runtime/integration/test_http_api.py",
@@ -312,7 +312,7 @@
   },
   {
    "path": "tests/runtime/unit/test_scorecard_service.py",
-   "sha256": "70b5a4f53d2520c419fc9f2c1abb0bc01df0bf3785722af3931f8c74b90dcf39"
+   "sha256": "734506c4b0131db4a411182c6a6d1d802c5b351a9f8f1a10608c2c01f7e37e72"
   },
   {
    "path": "tests/runtime/unit/test_scoring_aggregate.py",
@@ -360,7 +360,7 @@
   },
   {
    "path": "site/index.html",
-   "sha256": "59ba703de490f9f77f38f126f5bceba87a13cfcdd3929841f6201273b621141c"
+   "sha256": "33a3786e9902cb13e4a327efbc19ac98dcdca45827629e667de3b3ac8e1e33c8"
   },
   {
    "path": "site/package.json",
@@ -696,7 +696,7 @@
   },
   {
    "path": "site/src/main.ts",
-   "sha256": "c4fd5f1d44b721dcd26a49f29e30f79d8f51543288f761e0fe4a19f3b1ebe2ab"
+   "sha256": "568aa918f62642c25ad29740e17d04045b84580f2ccd61100e432ff2b96c98f4"
   },
   {
    "path": "site/src/styles/main.css",

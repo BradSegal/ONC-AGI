@@ -358,10 +358,7 @@ def cmd_play(args: argparse.Namespace) -> int:
         assert store is not None
         arena = LocalArena.over_store(store)
     n = args.n
-    if n is None and world_ids is None:
-        if tier is not Tier.PUBLIC_TRAIN:
-            print(f"play: {tier.value} worlds are drawn fresh; give --n", file=sys.stderr)
-            return 2
+    if n is None and world_ids is None and tier is Tier.PUBLIC_TRAIN:
         n = sum(1 for c in arena.worlds(tier) if mode is None or c.mode is mode)
     elif n is not None and store is not None and tier is Tier.PUBLIC_TRAIN:
         # in-process: draw here so the mix can be reported; a server draws the same way itself
@@ -371,6 +368,7 @@ def cmd_play(args: argparse.Namespace) -> int:
         except ValueError as exc:
             print(f"play: {exc}", file=sys.stderr)
             return 2
+    # an eval tier without --n: a server with fixed sets scores the whole set; others refuse
     record = Path(args.record) if args.record else None
     try:
         recorder = RecordingWriter(record / RECORDING_FILE) if record else None

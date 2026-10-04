@@ -19,6 +19,18 @@ Hardening (B1-B4):
   Episodes driven directly through :meth:`ScorecardService.episode` are not traced,
   so only actions applied through :meth:`ScorecardService.act` are restored.
 * With a TTL, abandoned scorecards are closed by a sweep on every open/act/close.
+
+Hosted operation:
+
+* ``allowed_keys`` may be any container, so a live account store can admit keys
+  issued after start-up.
+* ``cap_identity`` maps a key to the identity its caps are counted against (by
+  default the key's digest); a host that issues keys per account counts caps per
+  account, so rotating a key does not reset them.
+* ``fixed_eval_sets`` plays an evaluation tier as one fixed set: every scorecard
+  scores the whole tier (optionally one mode of it), nothing is marked used, and
+  per-world results stay hidden as for any eval scorecard. This is ARC's
+  competition mode, for a set whose answer keys live only on the server.
 """
 
 from __future__ import annotations
@@ -28,7 +40,7 @@ import hashlib
 import hmac
 import secrets
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -85,6 +97,23 @@ def key_digest(api_key: str) -> str:
     return hashlib.sha256(api_key.encode()).hexdigest()
 
 
+@dataclass(frozen=True)
+class Progress:
+    """Where one scorecard stands, for operators and hosts (no answer data)."""
+
+    scorecard_id: str
+    agent: str
+    track: str
+    tier: Tier
+    n_worlds: int
+    started: int  # worlds with at least one action
+    submitted: int
+    steps: int
+    spent: float
+    closed: Scorecard | None
+    expired: bool
+
+
 @dataclass
 class _Open:
     scorecard_id: str
@@ -110,10 +139,12 @@ class ScorecardService:
         *,
         traces: Callable[[str], TraceSink] | None = None,
         pool_commitments: dict[Tier, str] | None = None,
-        allowed_keys: frozenset[str] | None = None,
+        allowed_keys: Container[str] | None = None,
         archive: ScorecardArchive | None = None,
         ttl: timedelta | None = None,
         min_eval_worlds: int = MIN_EVAL_WORLDS,
+        cap_identity: Callable[[str], str] | None = None,
+        fixed_eval_sets: bool = False,
     ) -> None:
         if ttl is not None and ttl <= timedelta(0):
             raise ValueError("ttl must be positive (use None to disable expiry)")
@@ -128,6 +159,8 @@ class ScorecardService:
         self.archive = archive
         self.ttl = ttl
         self.min_eval_worlds = min_eval_worlds
+        self.cap_identity = cap_identity or key_digest  # keys never rest on disk
+        self.fixed_eval_sets = fixed_eval_sets
         self._lock = threading.RLock()  # guards _open and serialises openings in this process
         self._open: dict[str, _Open] = {}
         self._stopped = False
@@ -178,7 +211,8 @@ class ScorecardService:
         seeded by ``seed`` (default 0; see :mod:`onc_agi.services.sampling`), so the
         same request always plays the same representative worlds.
         """
-        if (n_worlds is None) == (world_ids is None):
+        fixed = self.fixed_eval_sets and tier is not Tier.PUBLIC_TRAIN
+        if (n_worlds is None) == (world_ids is None) and not (fixed and world_ids is None):
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "give exactly one of n_worlds and world_ids")
         if seed is not None and (tier is not Tier.PUBLIC_TRAIN or world_ids is not None or seed < 0):
             raise ArenaError(
@@ -197,7 +231,7 @@ class ScorecardService:
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "track must be 'standard' or 'open'")
         if n_worlds is not None and not 1 <= n_worlds <= 10_000:
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "n_worlds must be between 1 and 10000")
-        if tier is not Tier.PUBLIC_TRAIN and (n_worlds or 0) < self.min_eval_worlds:
+        if tier is not Tier.PUBLIC_TRAIN and not fixed and (n_worlds or 0) < self.min_eval_worlds:
             raise ArenaError(
                 ErrorCode.INVALID_PAYLOAD, f"eval scorecards require at least {self.min_eval_worlds} worlds"
             )
@@ -215,7 +249,8 @@ class ScorecardService:
             self._ensure_active()
             now = self.clock()
             today = now.date().isoformat()
-            history = self.ledger.openings(key_digest(api_key), tier)  # keys never rest on disk
+            identity = self.cap_identity(api_key)
+            history = self.ledger.openings(identity, tier)
             if tier is Tier.PUBLIC_EVAL and sum(1 for d in history if d == today) >= PUBLIC_EVAL_DAILY_CAP:
                 raise ArenaError(
                     ErrorCode.CAP_EXCEEDED, f"at most {PUBLIC_EVAL_DAILY_CAP} public-eval scorecards per day"
@@ -228,22 +263,33 @@ class ScorecardService:
                 chosen = train_draw
             else:
                 available = world_ids if world_ids is not None else self.store.world_ids(tier)
-                n_worlds = len(available) if n_worlds is None else n_worlds
                 if mode is not None:
                     available = tuple(w for w in available if self.store.card(w).mode is mode)
-                if tier is not Tier.PUBLIC_TRAIN:
-                    used = self.ledger.used(tier)
-                    available = tuple(w for w in available if w not in used)
-                if len(available) < n_worlds:
-                    raise ArenaError(
-                        ErrorCode.CAP_EXCEEDED, f"only {len(available)} unused worlds remain in {tier.value}"
-                    )
-                if world_ids is not None:
-                    chosen = available
+                if fixed:
+                    if not available:
+                        raise ArenaError(ErrorCode.CAP_EXCEEDED, f"no {tier.value} worlds are served")
+                    if n_worlds is not None and n_worlds != len(available):
+                        raise ArenaError(
+                            ErrorCode.INVALID_PAYLOAD,
+                            f"the {tier.value} set is scored whole: omit n_worlds or give {len(available)}",
+                        )
+                    chosen = tuple(sorted(available))
                 else:
-                    chosen = self._stratified_draw(available, n_worlds)
-                    self.ledger.mark_used(tier, list(chosen))
-            self.ledger.record_opening(key_digest(api_key), tier, today)
+                    n_worlds = len(available) if n_worlds is None else n_worlds
+                    if tier is not Tier.PUBLIC_TRAIN:
+                        used = self.ledger.used(tier)
+                        available = tuple(w for w in available if w not in used)
+                    if len(available) < n_worlds:
+                        raise ArenaError(
+                            ErrorCode.CAP_EXCEEDED,
+                            f"only {len(available)} unused worlds remain in {tier.value}",
+                        )
+                    if world_ids is not None:
+                        chosen = available
+                    else:
+                        chosen = self._stratified_draw(available, n_worlds)
+                        self.ledger.mark_used(tier, list(chosen))
+            self.ledger.record_opening(identity, tier, today)
             scorecard_id = f"sc-{secrets.token_hex(8)}"
             sc = _Open(
                 scorecard_id, agent, track, tier, chosen, tuple(tags), key_digest(api_key), opened_at=now
@@ -485,6 +531,26 @@ class ScorecardService:
         if self.archive is None:
             raise ArenaError(ErrorCode.ACTION_NOT_AVAILABLE, "this arena keeps no traces (it has no archive)")
         return self.archive.events(scorecard_id)
+
+    def progress(self, scorecard_id: str) -> Progress:
+        """Counts of started and submitted worlds (trusted path: no key, no answer data)."""
+        sc = self._get(scorecard_id, None)
+        with sc.lock:
+            episodes = list(sc.episodes.values())
+            n_worlds = sc.closed.n_worlds if sc.closed is not None else len(sc.world_ids)
+            return Progress(
+                scorecard_id=sc.scorecard_id,
+                agent=sc.agent,
+                track=sc.track,
+                tier=sc.tier,
+                n_worlds=n_worlds,
+                started=sum(1 for e in episodes if e.step > 0),
+                submitted=sum(1 for e in episodes if e.submission is not None),
+                steps=sum(e.step for e in episodes),
+                spent=sum(e.spent for e in episodes),
+                closed=sc.closed,
+                expired=sc.expired,
+            )
 
     # ------------------------------------------------------------------ expiry and restore
 
