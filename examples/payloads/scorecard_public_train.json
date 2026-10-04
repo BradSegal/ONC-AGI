@@ -56,10 +56,10 @@
  "tokens": null,
  "track": "open",
  "versions": {
-  "engine": "engine-1.0+c010cc19",
+  "engine": "engine-1.0+6b70a13a",
   "interface": "1.0",
   "oracle": "toy-1-by-construction",
-  "scorer": "scorer-1.0+473dec6f"
+  "scorer": "scorer-1.0+468b40bc"
  },
  "worlds": [
   {
