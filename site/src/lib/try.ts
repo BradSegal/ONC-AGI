@@ -5,7 +5,10 @@
  * study costs efficiency. The build checks this rule against the real scorer on every list of up
  * to three measurements (scripts/prepare_data.py).
  */
-import play from "../data/play.json";
+// named imports: only the fields the game uses are bundled
+import { agent_threshold, budget, reference_cost, scoring, stages } from "../data/play.json";
+
+const play = { agent_threshold, budget, reference_cost, scoring, stages };
 
 const MAX = Math.max(...play.stages.flatMap((s) => Object.values(s.evidence)));
 const height = (v: number) => Math.sqrt(Math.max(0, v) / MAX);
@@ -89,6 +92,7 @@ export function tryOne(root: HTMLElement): void {
     done = true;
     const spent = play.stages[stage].spent;
     const s = score(submitted, spent);
+    const share = Math.round((100 * spent) / play.reference_cost);
     root.classList.add("is-revealed");
     bars.forEach((b) => {
       const id = b.dataset.id!;
@@ -105,9 +109,11 @@ export function tryOne(root: HTMLElement): void {
     result.hidden = false;
     result.innerHTML = `
       <div class="try__score"><span>Find</span><b>${s.find.toFixed(2)}</b></div>
-      <div class="try__score"><span>Efficiency</span><b>${s.efficiency.toFixed(2)}</b></div>
+      <div class="try__score"><span>Spent, of the reference study</span><b>${share}%</b></div>
+      <div class="try__spendbar" aria-hidden="true"><i style="width:${Math.min(100, (100 * spent) / play.budget).toFixed(1)}%"></i><em style="left:${((100 * play.reference_cost) / play.budget).toFixed(1)}%"></em></div>
       <p>${why}</p>
-      <p>You spent $${money(spent)}; the reference study costs $${money(play.reference_cost)}${spent > play.reference_cost ? ", so efficiency falls" : ""}. The planted driver is <code>${truth}</code>; its near-duplicate <code>${twin}</code> is accepted too.</p>
+      <p>You spent $${money(spent)} on ${play.stages[stage].patients} patients; the reference study, the cost of answering with enough patients, is $${money(play.reference_cost)}. ${spent > play.reference_cost ? `Spending past it reduces credit: this answer keeps ${s.efficiency.toFixed(2)} of it.` : "Credit is reduced only when spending goes past it."}</p>
+      <p>The planted driver is <code>${truth}</code>; its near-duplicate <code>${twin}</code> is accepted too.</p>
       <p><a href="#journey">See how a recorded baseline played this world ↓</a></p>`;
     render();
   };

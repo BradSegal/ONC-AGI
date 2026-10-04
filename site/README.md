@@ -21,6 +21,18 @@ npm run check     # verify the built page against its source data
 npm run preview   # serve dist/
 ```
 
+## Hosting
+
+One build is served from two hosts: GitHub Pages (`https://bradsegal.github.io/ONC-AGI/`, deployed by `.github/workflows/pages.yml` on every push to `main` that touches `site/`) and `https://onc-agi.com/`, which is the canonical address and also routes `/arena` to the hosted Arena. Asset paths are relative (`base: "./"`), so the same `dist/` works at either path.
+
+Each build stamps its commit into `<meta name="onc-agi-build">` (from `GITHUB_SHA`, `RAILWAY_GIT_COMMIT_SHA` or `git`). To confirm both hosts serve the same build:
+
+```bash
+for u in https://bradsegal.github.io/ONC-AGI/ https://onc-agi.com/; do
+  curl -s "$u" | grep -o 'onc-agi-build" content="[^"]*'
+done
+```
+
 ## Films
 
 The opening and the journey's 3D beats are films, so every visitor sees the same full-quality frames whatever their hardware, including laptops with no usable GPU. The page itself runs no WebGL: it plays video and draws the labels as live HTML.

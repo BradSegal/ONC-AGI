@@ -98,7 +98,7 @@ export function cohort(): string {
   const top = 112;
   const y = scaleBand<number>().domain(Array.from({ length: ROWS }, (_, i) => i)).range([top, 376]).padding(0.1);
   const step = y.step();
-  const shade = interpolateRgbBasis([C.raised, C.deep, "#c2d5e2"]);
+  const shade = interpolateRgbBasis([C.raised, C.deep, "#c9dae6"]); // the same ramp as the films: Crest Pale on top
   const rows = Array.from({ length: ROWS }, (_, r) => r * 4);
   // State 2 sorts patients by outcome, events first, so the driver's column visibly grades with it.
   const sorted = [...rows].sort((a, b) => j.pool.outcome[b] - j.pool.outcome[a] || a - b);
@@ -152,7 +152,7 @@ export function cohort(): string {
   s += `<g class="from-2">${text(704, 448, "Rows sorted by outcome", 'text-anchor="end" class="small"')}</g>`;
   return pane(
     "build",
-    svg(s, `Synthetic cohort of ${j.card.n_pool} patients and ${ordered.length} measurements; the planted driver ${truth} and its near-duplicate ${twin}; patients sorted by outcome; three post-outcome measurements`),
+    svg(s, `Cohort of ${j.card.n_pool} patients and ${ordered.length} measurements; the planted driver ${truth} and its near-duplicate ${twin}; patients sorted by outcome; three post-outcome measurements`),
     `Every fourth patient of ${j.card.n_pool}. Colour encodes the standardised value of each measurement.`,
   );
 }
@@ -182,7 +182,7 @@ export function recovery(compact = false): string {
     marginTop: g.top,
     marginBottom: g.bottom,
     style: { background: C.paper, color: C.muted, fontFamily: SANS, fontSize: "14px" },
-    x: { type: "log", domain: g.domain, ticks: compact ? [30, 60, 120, 240] : [30, 45, 60, 100, 160, 240], tickFormat: (n: number) => String(n), label: "Patients per simulated cohort →", labelAnchor: "right" },
+    x: { type: "log", domain: g.domain, ticks: compact ? [30, 60, 120, 240] : [30, 45, 60, 100, 160, 240], tickFormat: (n: number) => String(n), label: "Patients per cohort →", labelAnchor: "right" },
     y: { domain: [0, 1.04], ticks: [0, 0.2, 0.5, 0.8, 1], tickFormat: (n: number) => `${Math.round(n * 100)}%`, label: "↑ Detected", grid: true },
     color: { domain: SERIES.map((s) => s.key), range: SERIES.map((s) => s.color) },
     marks: [
@@ -199,7 +199,7 @@ export function recovery(compact = false): string {
   });
   p.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   p.setAttribute("role", "img");
-  p.setAttribute("aria-label", `Detection rate against cohort size: the driver is detected in at least 80% of simulated cohorts from ${n80} patients; the unrelated measurement almost never`);
+  p.setAttribute("aria-label", `Detection rate against cohort size: the driver is detected in at least 80% of cohorts from ${n80} patients; the unrelated measurement almost never`);
   p.querySelectorAll('[aria-label="line"] path').forEach((e) => e.classList.add("ci-line"));
   p.querySelectorAll('[aria-label="area"] path').forEach((e) => e.classList.add("ci-band"));
   return p.outerHTML;
@@ -236,14 +236,14 @@ export function nulls(): string {
     text(thr + 8, 98, "95% of no-signal cohorts stay below", 'class="small"');
   s += text(40, 232, `${o.null_draws} cohorts with no signal:`, 'class="quiet"') + text(40, 252, "the strongest |z| in each", 'class="quiet"');
   s += text(x(6.4), 232, `Driver ${o.features.cause}:`, 'class="red"') + text(x(6.4), 252, `${o.replicates} cohorts of ${j.card.n_pool}`, 'class="quiet"');
-  return svg(s, `Histogram of the largest association in ${o.null_draws} no-signal cohorts, its 95th percentile ${o.threshold.toFixed(2)} as the threshold, and the driver's association in ${o.replicates} simulated cohorts, all above it`, 430, 720, "nulls-plot");
+  return svg(s, `Histogram of the largest association in ${o.null_draws} no-signal cohorts, its 95th percentile ${o.threshold.toFixed(2)} as the threshold, and the driver's association in ${o.replicates} cohorts, all above it`, 430, 720, "nulls-plot");
 }
 
 export function certify(): string {
   return pane(
     "certify",
     `<div class="pane__state pane__state--0"><div class="asset-wide">${recovery()}</div><div class="asset-compact">${recovery(true)}</div></div><div class="pane__state pane__state--1">${nulls()}</div>`,
-    `${o.replicates} simulations per cohort size, with 95% Wilson intervals; the red mark is where the driver's lower bound first clears 80%. The threshold comes from ${o.null_draws} no-signal outcomes. The oracle refits the planted model; these marginal tests show the method.`,
+    `Marginal tests on ${o.replicates} redraws of the outcome per cohort size, with 95% Wilson intervals; the red mark is where the driver's lower bound first clears 80%. The threshold comes from ${o.null_draws} no-signal outcomes.`,
   );
 }
 
@@ -260,7 +260,7 @@ export function worldCard(): string {
   return pane(
     "receive",
     `<div class="worldcard" role="group" aria-label="World card handed to the agent">
-      <div class="worldcard__head"><b>${esc(j.world)}</b><span>sequential access</span></div>
+      <div class="worldcard__head"><b>Training world</b><span>sequential access</span></div>
       <div class="worldcard__row"><span>Patients available</span><b>${j.card.n_pool} · $${money(j.card.recruit_price)} each to recruit</b></div>
       <div class="worldcard__row"><span>Budget</span><b>$${money(j.card.budget)}</b></div>
       <div class="worldcard__groups"><span class="worldcard__note">Measurements · assay price per patient</span>${byGroup.join("")}</div>
@@ -348,7 +348,7 @@ export function scoring(): string {
   s += `<g data-k="6">${text(28, 420, "Cost", 'class="quiet"')}<rect x="196" y="410" width="496" height="8" fill="${C.well}"/><rect x="196" y="410" width="${cost(spent) - 196}" height="8" fill="${C.blue}"/>` +
     `<line x1="${cost(j.key.reference_cost)}" x2="${cost(j.key.reference_cost)}" y1="402" y2="426" stroke="${C.ink}" stroke-width="1.5"/>` +
     text(cost(spent) - 6, 446, `$${money(spent)} spent`, 'text-anchor="end" class="small mono"') + text(cost(j.key.reference_cost) + 6, 446, `$${money(j.key.reference_cost)} reference study`, 'class="small mono"') +
-    text(692, 398, `efficiency ${a.efficiency.toFixed(2)}`, 'text-anchor="end" class="small mono"') + `</g>`;
+    text(692, 398, `${Math.round((100 * spent) / j.key.reference_cost)}% of the reference study`, 'text-anchor="end" class="small"') + `</g>`;
   s = `<defs><pattern id="key-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="8" height="8" fill="${C.raised}"/><line x1="0" y1="0" x2="0" y2="8" stroke="${C.ink}" stroke-opacity=".08" stroke-width="3"/></pattern></defs>` + s;
 
   // k7: the same scorer, run on other answers to this world.

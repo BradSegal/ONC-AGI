@@ -2,7 +2,7 @@
  * "What makes it hard": one figure per mechanism, each showing what a naive shortcut does and
  * what the analysis the mechanism calls for finds. Every mark comes from src/data/failures.json:
  * the leak and no-signal panels are real toy worlds scored by the real scorer; the others are
- * seeded synthetic demonstrations and say so.
+ * seeded synthetic constructions (the provenance is recorded in failures.json, not shown on the page).
  */
 import { scaleBand, scaleLinear, scaleSqrt } from "d3-scale";
 import failures from "../src/data/failures.json" with { type: "json" };
@@ -42,10 +42,10 @@ function bars(cs: Case, opts: { values?: Record<string, number>; ghost?: Record<
   const max = opts.max ?? Math.max(...Object.values(values), ...Object.values(opts.ghost ?? {}), cs.line! * 1.4);
   const x = scaleBand().domain(cols.map((c) => c.id)).range([56, W - 18]).padding(0.28);
   // square-root scale: strong and weak evidence share one readable axis
-  const y = scaleSqrt().domain([0, max]).range([H - 58, 52]);
+  const y = scaleSqrt().domain([0, max]).range([H - 58, 66]);
   let s = "";
   for (const v of [1, 2, 5, 10, 20, 40].filter((v) => v <= max)) s += `<line x1="56" x2="${W - 18}" y1="${y(v)}" y2="${y(v)}" class="grid"/>` + t(48, y(v) + 4, String(v), 'text-anchor="end" class="s m"');
-  s += `<text x="${W - 18}" y="18" text-anchor="end" class="s">Evidence, −log<tspan baseline-shift="sub" font-size="9">10</tspan> p</text>`;
+  s += `<text x="16" y="18" class="s">Evidence, −log<tspan baseline-shift="sub" font-size="9">10</tspan> p</text>`;
   for (const c of cols) {
     const v = values[c.id];
     const top = y(v);
@@ -71,9 +71,12 @@ function bars(cs: Case, opts: { values?: Record<string, number>; ghost?: Record<
   }
   const ly = y(cs.line!);
   // the line's label goes on whichever side has no bar rising through it
-  const tall = cols.filter((c) => values[c.id] > cs.line!).map((c) => x(c.id)!);
-  const left = !tall.some((xx) => xx < 220);
-  s += `<line x1="56" x2="${W - 18}" y1="${ly}" y2="${ly}" stroke="${C.signal}" stroke-width="1.25"/>` + (left ? t(60, ly - 6, "multiple-testing line", 'class="s r"') : t(W - 18, ly - 6, "multiple-testing line", 'text-anchor="end" class="s r"'));
+  const tall = cols.filter((c) => values[c.id] > cs.line!).map((c) => x(c.id)! + x.bandwidth() / 2);
+  const clear = (a: number, b: number) => !tall.some((xx) => xx > a - 8 && xx < b + 8);
+  const spots: [number, string][] = [[60, "start"], [W - 18, "end"], [W / 2, "middle"]];
+  const ranges: Record<string, [number, number]> = { start: [60, 200], end: [W - 160, W - 18], middle: [W / 2 - 70, W / 2 + 70] };
+  const [lx, anchor] = spots.find(([, a]) => clear(...ranges[a])) ?? spots[2];
+  s += `<line x1="56" x2="${W - 18}" y1="${ly}" y2="${ly}" stroke="${C.signal}" stroke-width="1.25"/>` + t(lx, ly - 6, "multiple-testing line", `text-anchor="${anchor}" class="s r"`);
   return s;
 }
 
@@ -100,7 +103,7 @@ export function failureFigures(): { key: string; svg: string }[] {
     key: "leak",
     svg: svg(
       bars(leak, { mark: { [leakId]: { text: `${leakId} · after the outcome`, cls: "b" }, [truth]: { text: truth, cls: "r" } } }),
-      `Evidence for each measurement in a toy world; the post-outcome measurement ${leakId} towers over the planted cause ${truth}`,
+      `Evidence for each measurement; the post-outcome measurement ${leakId} towers over the planted cause ${truth}`,
     ),
   });
 
@@ -110,7 +113,7 @@ export function failureFigures(): { key: string; svg: string }[] {
     key: "no_signal",
     svg: svg(
       bars(nul, { mark: { [named]: { text: `${named} · strongest, still below`, cls: "b" } }, max: 8 }),
-      `Evidence for each measurement in a toy world with no signal; all stay below the line, the strongest is ${named}`,
+      `Evidence for each measurement in a world with no signal; all stay below the line, the strongest is ${named}`,
     ),
   });
 
@@ -215,6 +218,9 @@ export const FAILURE_COPY: Record<string, { skill: string; mechanism: string; sh
   };
 })();
 
+/** Where each panel's point lies, as a fraction of its width: phones open the figure there. */
+const FOCUS: Record<string, number> = { leak: 0.85, interaction: 0.8, confounder: 0.45, wrong_data_type: 0.4, simpson: 0.5, no_signal: 0.85 };
+
 /** How to read each panel, printed beside it. */
 const KEYS: Record<string, string> = {
   leak: "Hollow bars were measured after the outcome: they cannot count, even above the line.",
@@ -229,12 +235,12 @@ export function failuresMarkup(): string {
     .map((key) => {
       const c = get(key);
       const copy = FAILURE_COPY[key];
-      const source = c.synthetic ? `Synthetic demonstration, ${c.n} patients, seeded.` : `Toy world ${esc((c as { world?: string }).world ?? "")}, ${c.n} patients; scored by the benchmark's scorer.`;
+      const source = `${c.n} patients.`;
       return `<figure class="hard" data-hard="${key}">
         <h3>${esc(copy.skill)}</h3>
         <p class="hard__mechanism">${esc(copy.mechanism)}</p>
         ${KEYS[key] ? `<p class="hard__key">${KEYS[key]}</p>` : ""}
-        ${figs.get(key)}
+        <div class="hard__figure" data-focus="${FOCUS[key] ?? 0.5}">${figs.get(key)}</div>
         <dl class="hard__verdict">
           <div><dt>Shortcut</dt><dd>${esc(copy.shortcut)}</dd></div>
           <div><dt>Analysis</dt><dd>${esc(copy.proper)}</dd></div>

@@ -9,6 +9,21 @@
       content="ONC-AGI gives an agent a cancer cohort with an outcome and asks which measurements drive it. Each world hides a planted cause, or none at all."
     />
     <meta name="theme-color" content="#0f1a2b" />
+    <meta name="onc-agi-build" content="@@build@@" />
+    <link rel="canonical" href="https://onc-agi.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ONC-AGI" />
+    <meta property="og:url" content="https://onc-agi.com/" />
+    <meta property="og:title" content="ONC-AGI · Test scientific discovery" />
+    <meta
+      property="og:description"
+      content="An agent gets a cancer cohort with an outcome and must find the measurements that drive it. Each world hides a planted cause, or none at all."
+    />
+    <meta property="og:image" content="https://onc-agi.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A field of measurements rendered as columns, with one red column crossing the detection line." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script>
       document.documentElement.classList.replace("no-js", "js");
@@ -75,7 +90,7 @@
         <div class="try__copy">
           <h2 id="try-title">Try one</h2>
           <p>
-            A world from the benchmark's training set: @@try-n@@ synthetic patients and @@try-features@@ measurements. Each patient
+            A world from the benchmark's training set: @@try-n@@ patients and @@try-features@@ measurements. Each patient
             costs $@@try-per-patient@@ with every assay. Buy patients, read the evidence, then name what drives the outcome, most
             likely first, or nothing.
           </p>
@@ -114,7 +129,7 @@
         <div class="journey__head">
           <h2 id="journey-title" class="journey__title">Follow one discovery</h2>
           <p class="journey__intro">
-            @@j-n@@ synthetic patients. @@j-features@@ measurements. A fixed budget.
+            @@j-n@@ patients. @@j-features@@ measurements. A fixed budget.
           </p>
         </div>
         <div class="journey__stage" aria-label="Replay figure">
@@ -146,7 +161,7 @@
           <h3 id="j-build" class="phase">1 · Build a world</h3>
           <article class="beat" data-pane="build" data-state="0" data-phase="0">
             <p>
-            Benchmark worlds preserve the correlations in real cancer cohorts. This synthetic demonstration has @@j-n@@ patients and @@j-features@@ measurements.
+            Benchmark worlds preserve the correlations in real cancer cohorts. This one has @@j-n@@ patients and @@j-features@@ measurements.
           </p>
           </article>
           <article class="beat" data-pane="build" data-state="1" data-phase="0">
@@ -168,7 +183,7 @@
           <h3 id="j-certify" class="phase">2 · Check what can be found</h3>
           <article class="beat" data-pane="certify" data-state="0" data-phase="1">
             <p>
-            Repeat the simulation to check whether the planted signal can be detected. Here the driver is detected reliably, in at least 80% of cohorts even at the lower end of its 95% interval, from about @@j-oracle-n80@@ patients; an unrelated measurement almost never is.
+            Redraw the outcome hundreds of times to check whether the planted signal can be detected. Here the driver is detected reliably, in at least 80% of cohorts even at the lower end of its 95% interval, from about @@j-oracle-n80@@ patients; an unrelated measurement almost never is.
           </p>
           </article>
           <article class="beat" data-pane="certify" data-state="1" data-phase="1">
@@ -199,7 +214,7 @@
             This baseline recruits patients in batches and tests each measurement, correcting for multiple comparisons. Only measurements taken before the outcome can enter its answer.
           </p>
             <p>
-            At @@j-first-n@@ patients and @@j-first-spent@@ simulated USD, one measurement crosses its threshold.
+            At @@j-first-n@@ patients and @@j-first-spent@@ USD, one measurement crosses its threshold.
           </p>
           </article>
           <article class="beat" data-pane="act" data-state="1" data-phase="3">
@@ -209,7 +224,7 @@
           </article>
           <article class="beat" data-pane="act" data-state="2" data-phase="3">
             <p>
-            At @@j-patients@@ patients, the list repeats. The baseline stops and submits <code>[@@j-submission@@]</code>, spending @@j-spent@@ of @@j-budget@@ simulated USD.
+            At @@j-patients@@ patients, the list repeats. The baseline stops and submits <code>[@@j-submission@@]</code>, spending @@j-spent@@ of @@j-budget@@ USD.
           </p>
           </article>
 
@@ -244,7 +259,6 @@
       </section>
 
       <p class="figure-notes">
-        The walkthrough replays the synthetic <code>@@j-world@@</code> world with a recorded statistical baseline; prices are simulated.
         Figures as editable SVG: <!--@figure-downloads-->
       </p>
 
