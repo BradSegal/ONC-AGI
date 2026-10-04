@@ -1,0 +1,255 @@
+name: release
+
+# A pushed tag vX.Y.Z publishes: wheel, sdist, the built site and the world sets, with SHA256SUMS
+# and build-provenance attestations, then the package to PyPI by trusted publishing.
+# A manual run (workflow_dispatch) is a dry run: it passes the same gate and builds and checks every
+# asset, uploads them as workflow artifacts, and publishes nothing.
+#
+# Gate: the commit must have a completed, successful `ci` run whose `checks` and `site` jobs both
+# succeeded (tools/release_gate.py); for a tag, that run must come from a push to main, the commit
+# must be on main, and the tag must equal v<pyproject version>.
+# World sets are not in git: each archive and its certified/excluded id lists are downloaded from the
+# release named in release/world-sets.json and refused unless each matches its pinned SHA-256
+# (tools/world_sets.py); DATA-NOTICE.md is put inside every archive and attached beside them.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash # -eo pipefail: a failing command anywhere in a pipeline fails the step
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false # never stop a publication half-way
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # read the commit's ci runs and jobs
+    outputs:
+      version: ${{ steps.gate.outputs.version }}
+      prerelease: ${{ steps.gate.outputs.prerelease }}
+      publish: ${{ steps.mode.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }} # the exact commit the gate approved
+          fetch-depth: 0 # the tag commit must be checked against main
+          persist-credentials: false
+      - id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; then publish=true; else publish=false; fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Mode: $([ "$publish" = true ] && echo 'publish from tag' || echo 'dry run, nothing is published')" >> "$GITHUB_STEP_SUMMARY"
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ steps.mode.outputs.publish }}
+        run: |
+          args=(--repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --workflow ci.yml --job checks --job site)
+          if [ "$PUBLISH" = true ]; then args+=(--tag "$GITHUB_REF_NAME" --main-ref origin/main); fi
+          python3 tools/release_gate.py "${args[@]}"
+
+  package:
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }} # the exact commit the gate approved
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.0"
+          python-version: "3.12"
+          enable-cache: false # a release build starts from nothing
+      - name: Build wheel and sdist
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          export SOURCE_DATE_EPOCH
+          uv build --out-dir "$RUNNER_TEMP/package"
+      - name: Install the wheel in a clean environment and run the smoke check
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/consumer"
+          uv pip install --python "$RUNNER_TEMP/consumer/bin/python" "$RUNNER_TEMP"/package/*.whl
+          cd "$RUNNER_TEMP" && "$RUNNER_TEMP/consumer/bin/onc-agi" smoke
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package
+          path: ${{ runner.temp }}/package/
+          if-no-files-found: error
+          retention-days: 7
+
+  site:
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }} # the exact commit the gate approved
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false # a release build starts from nothing
+      - run: npm ci
+      - run: npm run build
+      - name: Archive the built site
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/site"
+          tar --sort=name --mtime="@$(git log -1 --format=%ct)" --owner=0 --group=0 --numeric-owner \
+            -C dist -cf - . | gzip -n > "$RUNNER_TEMP/site/onc-agi-site-$VERSION.tar.gz"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site
+          path: ${{ runner.temp }}/site/
+          if-no-files-found: error
+          retention-days: 7
+
+  world-sets:
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }} # the exact commit the gate approved
+          persist-credentials: false
+      - name: Download the pinned world sets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source_release="$(jq --raw-output .source_release release/world-sets.json)"
+          mapfile -t assets < <(jq --raw-output '.sets[] | .asset, (.companions // [])[].asset' release/world-sets.json)
+          mkdir -p "$RUNNER_TEMP/sources"
+          for asset in "${assets[@]}"; do
+            gh release download "$source_release" --repo "$GITHUB_REPOSITORY" \
+              --pattern "$asset" --dir "$RUNNER_TEMP/sources"
+          done
+      - name: Verify the pins and add the data notice
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          export SOURCE_DATE_EPOCH
+          python3 tools/world_sets.py package --sources "$RUNNER_TEMP/sources" --out "$RUNNER_TEMP/worlds"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: world-sets
+          path: ${{ runner.temp }}/worlds/
+          if-no-files-found: error
+          compression-level: 0 # already gzip
+          retention-days: 3
+
+  assemble:
+    needs: [gate, package, site, world-sets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }} # the exact commit the gate approved
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+      - name: Write and verify SHA256SUMS
+        env:
+          PUBLISH: ${{ needs.gate.outputs.publish }}
+        run: |
+          python3 tools/world_sets.py checksums "$RUNNER_TEMP/release"
+          python3 tools/world_sets.py verify "$RUNNER_TEMP/release"
+          (cd "$RUNNER_TEMP/release" && sha256sum --check --strict SHA256SUMS)
+          {
+            echo "### Release assets"
+            echo '```'
+            cat "$RUNNER_TEMP/release/SHA256SUMS"
+            echo '```'
+            [ "$PUBLISH" = true ] || echo "Dry run: every asset was built and verified; nothing was published."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: checksums
+          path: ${{ runner.temp }}/release/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [gate, assemble]
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # sign the attestations
+      attestations: write # store the attestations
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/assets
+          merge-multiple: true
+      - name: Re-verify the assembled assets
+        run: |
+          cd "$RUNNER_TEMP/assets"
+          sha256sum --check --strict SHA256SUMS
+          diff <(find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort) <(cut -d' ' -f3- SHA256SUMS | sort)
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: ${{ runner.temp }}/assets/SHA256SUMS
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.gate.outputs.version }}
+          PRERELEASE: ${{ needs.gate.outputs.prerelease }}
+        run: |
+          flags=(--verify-tag --title "ONC-AGI $VERSION")
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          notes="Built by the release workflow from $GITHUB_SHA after green CI. Verify downloads with: sha256sum --check --ignore-missing SHA256SUMS. World data: ODbL 1.0; see DATA-NOTICE.md (attached and inside each world archive). Each world set's certified and excluded id lists are attached beside it. Changes: CHANGELOG.md."
+          gh release create "$TAG" "$RUNNER_TEMP"/assets/* --repo "$GITHUB_REPOSITORY" --notes "$notes" "${flags[@]}"
+
+  pypi:
+    needs: [gate, publish]
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/onc-agi
+    permissions:
+      id-token: write # PyPI trusted publishing; no stored token
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/
