@@ -786,6 +786,7 @@ def catalogue(trip: dict[str, Any]) -> list[dict[str, Any]]:
 
 # --------------------------------------------------------------------------- what makes it hard
 
+
 def signed_welch(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
     """(-log10 p, sign of the mean difference) for one column, by Welch t-test."""
     from scipy import stats
@@ -832,30 +833,65 @@ def failures(cat: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # 1. Leak (real toy world): the unfiltered screen ranks a post-outcome measurement first.
     leak = by["leak"]
     post = set(leak["reject"])
-    out.append({
-        "key": "leak", "synthetic": False, "world": leak["world"], "n": leak["n"],
-        "cols": [{"id": f["id"], "type": f["type"], "post": f["timing"] == "post_outcome",
-                  "role": "truth" if f["id"] in sum(leak["truth"], []) else "leak" if f["id"] in [d["id"] for d in leak["builder_decoys"]] else "post" if f["id"] in post else ""}
-                 for f in leak["features"]],
-        "evidence": leak["evidence"],
-        "line": leak["shortcut_unfiltered"]["threshold"],
-        "shortcut": {"ranking": leak["shortcut_unfiltered"]["ranking"], "find": leak["shortcut_unfiltered"]["find"], "leaked": True},
-        "proper": {"ranking": leak["shortcut"]["ranking"], "find": leak["shortcut"]["find"], "leaked": False},
-    })
+    out.append(
+        {
+            "key": "leak",
+            "synthetic": False,
+            "world": leak["world"],
+            "n": leak["n"],
+            "cols": [
+                {
+                    "id": f["id"],
+                    "type": f["type"],
+                    "post": f["timing"] == "post_outcome",
+                    "role": (
+                        "truth"
+                        if any(f["id"] in group for group in leak["truth"])
+                        else (
+                            "leak"
+                            if f["id"] in [d["id"] for d in leak["builder_decoys"]]
+                            else "post" if f["id"] in post else ""
+                        )
+                    ),
+                }
+                for f in leak["features"]
+            ],
+            "evidence": leak["evidence"],
+            "line": leak["shortcut_unfiltered"]["threshold"],
+            "shortcut": {
+                "ranking": leak["shortcut_unfiltered"]["ranking"],
+                "find": leak["shortcut_unfiltered"]["find"],
+                "leaked": True,
+            },
+            "proper": {
+                "ranking": leak["shortcut"]["ranking"],
+                "find": leak["shortcut"]["find"],
+                "leaked": False,
+            },
+        }
+    )
 
     # 2. No signal (real toy world): every measurement stays below the line; naming the
     #    strongest anyway is a false claim, and only returning nothing earns Restraint.
     null = by["no_signal"]
     base = [f["id"] for f in null["features"] if f["timing"] == "baseline"]
     top = max(base, key=lambda f: null["evidence"][f])
-    out.append({
-        "key": "no_signal", "synthetic": False, "world": null["world"], "n": null["n"],
-        "cols": [{"id": f["id"], "type": f["type"], "post": f["timing"] == "post_outcome", "role": ""} for f in null["features"]],
-        "evidence": null["evidence"],
-        "line": null["shortcut"]["threshold"],
-        "shortcut": {"ranking": [top], "claims": True},
-        "proper": {"ranking": [], "restrained": null["shortcut"]["restrained"]},
-    })
+    out.append(
+        {
+            "key": "no_signal",
+            "synthetic": False,
+            "world": null["world"],
+            "n": null["n"],
+            "cols": [
+                {"id": f["id"], "type": f["type"], "post": f["timing"] == "post_outcome", "role": ""}
+                for f in null["features"]
+            ],
+            "evidence": null["evidence"],
+            "line": null["shortcut"]["threshold"],
+            "shortcut": {"ranking": [top], "claims": True},
+            "proper": {"ranking": [], "restrained": null["shortcut"]["restrained"]},
+        }
+    )
 
     # 3. Interaction (synthetic): the outcome follows the product of two measurements, so
     #    neither is associated on its own; a marginal screen sees nothing.
@@ -867,15 +903,29 @@ def failures(cat: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ev = {ids[j]: rnd(signed_welch(x[:, j], y)[0]) for j in range(10)}
     prod = rnd(signed_welch(x[:, 0] * x[:, 1], y)[0])
     k = rng.choice(n, 220, replace=False)
-    out.append({
-        "key": "interaction", "synthetic": True, "n": n,
-        "cols": [{"id": i, "type": "expression", "post": False, "role": "truth" if i in ("a1", "a2") else ""} for i in ids],
-        "evidence": ev, "line": rnd(-math.log10(0.05 / 10)),
-        "joint": {"pair": ["a1", "a2"], "evidence": prod},
-        "scatter": {"x": [rnd(v) for v in x[k, 0]], "y": [rnd(v) for v in x[k, 1]], "outcome": [int(v) for v in y[k]]},
-        "shortcut": {"ranking": [i for i in sorted(ev, key=lambda i: -ev[i]) if ev[i] > -math.log10(0.05 / 10)]},
-        "proper": {"ranking": ["a1", "a2"]},
-    })
+    out.append(
+        {
+            "key": "interaction",
+            "synthetic": True,
+            "n": n,
+            "cols": [
+                {"id": i, "type": "expression", "post": False, "role": "truth" if i in ("a1", "a2") else ""}
+                for i in ids
+            ],
+            "evidence": ev,
+            "line": rnd(-math.log10(0.05 / 10)),
+            "joint": {"pair": ["a1", "a2"], "evidence": prod},
+            "scatter": {
+                "x": [rnd(v) for v in x[k, 0]],
+                "y": [rnd(v) for v in x[k, 1]],
+                "outcome": [int(v) for v in y[k]],
+            },
+            "shortcut": {
+                "ranking": [i for i in sorted(ev, key=lambda i: -ev[i]) if ev[i] > -math.log10(0.05 / 10)]
+            },
+            "proper": {"ranking": ["a1", "a2"]},
+        }
+    )
 
     # 4. Confounding (synthetic): a clinical subtype raises risk and lifts five genes; a weaker
     #    gene acts on its own. The screen ranks the lifted genes first; within each subtype only
@@ -887,19 +937,39 @@ def failures(cat: list[dict[str, Any]]) -> list[dict[str, Any]]:
     xg = rng.standard_normal(n)
     other = rng.standard_normal((n, 6))
     y = logistic(rng, -1.1 + 2.2 * s + 0.55 * xg)
-    cols = {"subtype": s, **{f"g{k + 1}": g[:, k] for k in range(5)}, "x7": xg, **{f"o{k + 1}": other[:, k] for k in range(6)}}
+    cols = {
+        "subtype": s,
+        **{f"g{k + 1}": g[:, k] for k in range(5)},
+        "x7": xg,
+        **{f"o{k + 1}": other[:, k] for k in range(6)},
+    }
     naive = {c: rnd(signed_welch(v, y)[0]) for c, v in cols.items()}
     adj = {c: (rnd(stratified(v, y, s)[0]) if c != "subtype" else naive[c]) for c, v in cols.items()}
     line = rnd(-math.log10(0.05 / len(cols)))
     genes = [c for c in cols if c != "subtype"]
-    out.append({
-        "key": "confounder", "synthetic": True, "n": n,
-        "cols": [{"id": c, "type": "clinical" if c == "subtype" else "expression", "post": False,
-                  "role": "truth" if c in ("x7", "subtype") else "lifted" if c.startswith("g") else ""} for c in cols],
-        "evidence": naive, "adjusted": adj, "line": line,
-        "shortcut": {"ranking": [c for c in sorted(genes, key=lambda c: -naive[c]) if naive[c] > line][:3]},
-        "proper": {"ranking": [c for c in sorted(genes, key=lambda c: -adj[c]) if adj[c] > line]},
-    })
+    out.append(
+        {
+            "key": "confounder",
+            "synthetic": True,
+            "n": n,
+            "cols": [
+                {
+                    "id": c,
+                    "type": "clinical" if c == "subtype" else "expression",
+                    "post": False,
+                    "role": "truth" if c in ("x7", "subtype") else "lifted" if c.startswith("g") else "",
+                }
+                for c in cols
+            ],
+            "evidence": naive,
+            "adjusted": adj,
+            "line": line,
+            "shortcut": {
+                "ranking": [c for c in sorted(genes, key=lambda c: -naive[c]) if naive[c] > line][:3]
+            },
+            "proper": {"ranking": [c for c in sorted(genes, key=lambda c: -adj[c]) if adj[c] > line]},
+        }
+    )
 
     # 5. Wrong data type (synthetic): a copy-number change drives the outcome and switches on a
     #    gene; reading only expression finds the switched-on gene, not the cause.
@@ -910,17 +980,41 @@ def failures(cat: list[dict[str, Any]]) -> list[dict[str, Any]]:
     expr = rng.standard_normal((n, 7))
     cn_other = rng.standard_normal((n, 3))
     y = logistic(rng, -0.6 + 1.1 * cn)
-    cols = {"c1": cn, "c2": cn_other[:, 0], "c3": cn_other[:, 1], "c4": cn_other[:, 2], "e1": target, **{f"e{k + 2}": expr[:, k] for k in range(7)}}
+    cols = {
+        "c1": cn,
+        "c2": cn_other[:, 0],
+        "c3": cn_other[:, 1],
+        "c4": cn_other[:, 2],
+        "e1": target,
+        **{f"e{k + 2}": expr[:, k] for k in range(7)},
+    }
     types = {c: ("copy_number" if c.startswith("c") else "expression") for c in cols}
     ev = {c: rnd(signed_welch(v, y)[0]) for c, v in cols.items()}
     line = rnd(-math.log10(0.05 / len(cols)))
-    out.append({
-        "key": "wrong_data_type", "synthetic": True, "n": n,
-        "cols": [{"id": c, "type": types[c], "post": False, "role": "truth" if c == "c1" else "downstream" if c == "e1" else ""} for c in cols],
-        "evidence": ev, "line": line,
-        "shortcut": {"ranking": [c for c in sorted(ev, key=lambda c: -ev[c]) if types[c] == "expression" and ev[c] > line][:1]},
-        "proper": {"ranking": [c for c in sorted(ev, key=lambda c: -ev[c]) if ev[c] > line][:1]},
-    })
+    out.append(
+        {
+            "key": "wrong_data_type",
+            "synthetic": True,
+            "n": n,
+            "cols": [
+                {
+                    "id": c,
+                    "type": types[c],
+                    "post": False,
+                    "role": "truth" if c == "c1" else "downstream" if c == "e1" else "",
+                }
+                for c in cols
+            ],
+            "evidence": ev,
+            "line": line,
+            "shortcut": {
+                "ranking": [
+                    c for c in sorted(ev, key=lambda c: -ev[c]) if types[c] == "expression" and ev[c] > line
+                ][:1]
+            },
+            "proper": {"ranking": [c for c in sorted(ev, key=lambda c: -ev[c]) if ev[c] > line][:1]},
+        }
+    )
 
     # 6. Simpson's paradox (synthetic): within each of two batches the marker raises risk, but
     #    the high-marker batch has fewer events, so pooling reverses the association.
@@ -932,12 +1026,20 @@ def failures(cat: list[dict[str, Any]]) -> list[dict[str, Any]]:
     pooled = signed_welch(m, y)
     within = stratified(m, y, batch)
     k = rng.choice(n, 240, replace=False)
-    out.append({
-        "key": "simpson", "synthetic": True, "n": n,
-        "pooled": {"evidence": rnd(pooled[0]), "sign": pooled[1]},
-        "within": {"evidence": rnd(within[0]), "sign": within[1]},
-        "scatter": {"x": [rnd(v) for v in m[k]], "batch": [int(v) for v in batch[k]], "outcome": [int(v) for v in y[k]]},
-    })
+    out.append(
+        {
+            "key": "simpson",
+            "synthetic": True,
+            "n": n,
+            "pooled": {"evidence": rnd(pooled[0]), "sign": pooled[1]},
+            "within": {"evidence": rnd(within[0]), "sign": within[1]},
+            "scatter": {
+                "x": [rnd(v) for v in m[k]],
+                "batch": [int(v) for v in batch[k]],
+                "outcome": [int(v) for v in y[k]],
+            },
+        }
+    )
     return out
 
 
