@@ -375,58 +375,6 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
 .claims ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
 .claims li { color: var(--ink-2); padding-top: 0.8rem; border-top: 2px solid var(--band-a); }
 
-/* ------------------------------------------------------------------ results */
-
-.results { padding: clamp(5rem, 10vh, 8rem) var(--pad); border-top: 1px solid var(--rule); }
-.results__head { display: grid; grid-template-columns: 1fr auto; gap: 1rem 2rem; align-items: end; margin-bottom: 2.5rem; }
-.results__head h2 { margin: 0; }
-.status { grid-column: 1 / -1; grid-row: 2; margin: 0; max-width: var(--measure); color: var(--ink-2); font-size: 0.98rem; }
-.segmented { display: inline-flex; padding: 3px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--rule-strong); grid-row: 1; grid-column: 2; }
-.segmented button {
-  font: inherit;
-  font-size: 0.86rem;
-  font-variation-settings: "wdth" 108;
-  color: var(--ink-2);
-  background: none;
-  border: 0;
-  min-height: 2.75rem;
-  padding: 0 1rem;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out);
-}
-.segmented button:hover { color: var(--ink); }
-.segmented button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
-.no-js .segmented { display: none; }
-
-.ladder { margin: 0 0 2.5rem; }
-.ladder__svg { width: 100%; height: auto; display: block; overflow: visible; }
-.ladder__svg text { font-family: var(--font-data); font-size: 12px; fill: var(--ink-2); }
-.ladder__svg .row-label { font-family: var(--font-display); font-size: 14px; fill: var(--ink); font-variation-settings: "wdth" 92; }
-.ladder__svg .row-label.kind-cheater { fill: var(--ink-2); }
-.ladder__svg .kind-head { font-family: var(--font-display); font-size: 13px; font-weight: 700; fill: var(--ink-2); }
-.ladder__svg .axis line { stroke: var(--rule); }
-.ladder__svg .axis .ref { stroke: var(--rule-strong); stroke-dasharray: 2 4; }
-.ladder__svg .ci { stroke: var(--band-a); stroke-width: 2; }
-.ladder__svg .dot { fill: var(--band-a); }
-.ladder__svg .row.kind-cheater .dot { fill: none; stroke: var(--ink-3); stroke-width: 1.5; }
-.ladder__svg .row.kind-cheater .ci { stroke: var(--ink-3); }
-.ladder__svg .row-rule { stroke: var(--rule); }
-.ladder__svg .value { font-variant-numeric: tabular-nums; fill: var(--ink); }
-.no-js .ladder { display: none; }
-
-.results__table summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; font-weight: 650; font-variation-settings: "wdth" 108; color: var(--ink-2); }
-.results__table summary:hover { color: var(--ink); }
-.results__table { overflow-x: auto; }
-.no-js .results__table { display: block; }
-.results-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.results-table caption { caption-side: bottom; text-align: left; padding-top: 0.9rem; font-size: 0.84rem; color: var(--ink-3); max-width: 80ch; }
-.results-table th, .results-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--rule); text-align: left; white-space: nowrap; }
-.results-table thead th { font-weight: 500; color: var(--ink-3); font-size: 0.8rem; }
-.results-table tbody th { font-weight: 600; position: sticky; left: 0; background: var(--ground); }
-.results-table .num { font-family: var(--font-data); font-variant-numeric: tabular-nums; text-align: right; }
-.results-table tr[data-kind="cheater"] :is(th, td) { color: var(--ink-2); }
-
 /* ------------------------------------------------------------------ run */
 
 .run {
@@ -476,7 +424,6 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
 .no-js .codeblock__copy { display: none; }
 .terminal { color: var(--ink-3); }
 .terminal code { background: none; padding: 0; font-size: inherit; white-space: pre; }
-.terminal__out { color: var(--ink-3); }
 
 /* ------------------------------------------------------------------ colophon */
 
@@ -579,8 +526,6 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
   .worlds td { padding: 0.32rem 0.45rem; font-size: 0.68rem; }
   .verdict { font-size: 0.95rem; }
   .claims ul { grid-template-columns: 1fr; }
-  .results__head { grid-template-columns: 1fr; }
-  .segmented { grid-column: 1; grid-row: 3; justify-self: start; }
   .run { grid-template-columns: minmax(0, 1fr); }
   .measures__table tbody th { width: auto; }
 }

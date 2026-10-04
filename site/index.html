@@ -23,7 +23,6 @@
         <a href="#task">The task</a>
         <a href="#journey">One task, start to finish</a>
         <a href="#measures">What it measures</a>
-        <a href="#results">Results</a>
         <a href="#run">Run your agent</a>
       </nav>
     </header>
@@ -313,33 +312,18 @@
         </div>
       </section>
 
-      <!-- Results: after the understanding -->
-      <section class="results" id="results" aria-labelledby="results-title">
-        <div class="results__head">
-          <h2 id="results-title">Where agents stand</h2>
-          <!--@status-->
-          <div class="segmented" role="group" aria-label="Score shown" data-mode-switch>
-            <button type="button" aria-pressed="true" data-mode="overall">Both modes</button>
-            <button type="button" aria-pressed="false" data-mode="full_access">Full access</button>
-            <button type="button" aria-pressed="false" data-mode="sequential">Sequential</button>
-          </div>
-        </div>
-        <figure class="ladder" data-ladder>
-          <svg class="ladder__svg" role="img" aria-labelledby="ladder-desc"><desc id="ladder-desc">Discovery Score for every agent on a scale from 0 to 1, with 95% intervals. The full table follows.</desc></svg>
-        </figure>
-        <details class="results__table">
-          <summary>All scorecards as a table</summary>
-          <!--@results-table-->
-        </details>
-      </section>
-
       <!-- Run your agent -->
       <section class="run" id="run" aria-labelledby="run-title">
         <div class="run__copy">
           <h2 id="run-title">Run your agent</h2>
           <p>
-            The interface, the engine, the scorer and @@world-count@@ benchmark worlds are public. An agent receives a world card,
-            chooses actions and submits a list. It runs offline through the same engine that scored the run above.
+            The interface, the engine and the scorer are public. An agent receives a world card, chooses actions and submits a
+            list. It runs offline through the same engine that scored the run above.
+          </p>
+          <p>
+            The 1.0.0rc3 world sets, 2,489 public-train worlds, are superseded and remain downloadable for reference. Eight of
+            those worlds have answer keys that no solver can reach, and the release's first-pass results took the first worlds of
+            each download, so every scored world came from one cohort source, METABRIC.
           </p>
           <p class="run__needs">Needs Python 3.12 and <a href="https://docs.astral.sh/uv/">uv</a>. The smoke test takes about ten seconds.</p>
           <ul class="run__links">
@@ -357,8 +341,7 @@
 uv sync
 uv run onc-agi smoke</code></pre>
           </div>
-          <pre class="terminal" aria-label="Expected output"><code>@@smoke-lines@@
-<span class="terminal__out">smoke passed</span></code></pre>
+          <pre class="terminal" aria-label="Expected output"><code>@@smoke-output@@</code></pre>
         </div>
       </section>
     </main>

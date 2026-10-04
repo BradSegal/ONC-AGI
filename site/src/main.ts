@@ -6,7 +6,6 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 
-import { Ladder } from "./lib/ladder";
 import { Landscape } from "./lib/landscape";
 import { rollTo } from "./lib/roll";
 
@@ -198,17 +197,6 @@ if (mobile)
     else ScrollTrigger.create({ trigger: el, start: "top 80%", once: true, onEnter: play });
   });
 
-/* ------------------------------------------------------------------ results */
-
-const ladder = new Ladder($<SVGSVGElement>(".ladder__svg"));
-if (!reduced) ScrollTrigger.create({ trigger: "[data-ladder]", start: "top 75%", once: true, onEnter: () => ladder.enter() });
-$$<HTMLButtonElement>("[data-mode-switch] button").forEach((b) =>
-  b.addEventListener("click", () => {
-    $$<HTMLButtonElement>("[data-mode-switch] button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
-    ladder.setMode(b.dataset.mode as string);
-  }),
-);
-
 /* ------------------------------------------------------------------ copy */
 
 $$<HTMLButtonElement>("[data-copy]").forEach((button) =>
@@ -257,7 +245,6 @@ const stops: { label: string; el: HTMLElement; offset: number }[] = [
   { label: "Why this task", el: $("#task"), offset: 0.12 },
   ...beats.map((b, i) => ({ label: `Journey ${i + 1}/${beats.length}`, el: b, offset: mobile ? 0.6 : 0.42 })),
   { label: "What it measures", el: $("#measures"), offset: 0.08 },
-  { label: "Where agents stand", el: $("#results"), offset: 0.08 },
   { label: "Run your agent", el: $("#run"), offset: 0.08 },
 ];
 const presenter = $("[data-presenter]");

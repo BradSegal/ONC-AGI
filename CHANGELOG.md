@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **rc3 is superseded.** 8 of its 2,489 public-train worlds have answer keys no solver can reach, and its first-pass results came from one cohort source (METABRIC). The first-pass results are withdrawn from the README, the website and the release notes; the rc3 world sets stay downloadable for reference.
+- **Scoring fix.** A neutral feature listed before a truth from the same cluster no longer costs that truth its credit: neutral features are removed before deduplication. The settled alternatives (greedy credit order and the alternative unfloored rules) are removed; a credit matching that exceeds its search limit raises an error instead of falling back. Chance is matched over the top R representatives only.
+- **Labels describe behaviour.** Scorer, engine and harness labels are derived from what the code does, so editing comments, docstrings or layout no longer changes a label. Results are comparable only within one label; existing scorecards keep the label they were scored under.
+- **Data credits.** The README credits every cohort source; world data are licensed under ODbL 1.0 and code under BSD-3-Clause.
+- **Website.** The results section is removed until 1.0 publishes verified results; the quickstart's expected output is the real `onc-agi smoke` output.
+
 ## 1.0.0rc3 — 2026-10-04
 
 Benchmark worlds, first-pass results and the website. The payload schemas stay interface `1.0`. Survival worlds add optional fields that binary payloads omit. The scorer label now carries a digest of its source (`scorer-1.0+<digest>`), so scorecards from different rule sets are never compared as equal.

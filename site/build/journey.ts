@@ -6,7 +6,7 @@
 import journey from "../src/data/journey.json" with { type: "json" };
 import oracle from "../src/data/oracle.json" with { type: "json" };
 
-const esc = (s: string) =>
+export const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 const usd = (v: number) => `${Math.round(v).toLocaleString("en-GB")}`;
 const f2 = (v: number) => (Math.abs(v) < 0.005 ? 0 : v).toFixed(2);

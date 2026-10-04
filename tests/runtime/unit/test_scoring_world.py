@@ -72,13 +72,27 @@ def test_neutral_groups_are_removed_and_do_not_consume_depth() -> None:
     assert score_world([fid(3), fid(0)], key, chance=NO_CHANCE).raw_recovery == 1.0
 
 
-def test_a_neutral_representative_shadows_its_cluster_mates() -> None:
-    """Deduplication precedes neutral removal (proposal section 4, steps 1-2)."""
+@pytest.mark.parametrize(
+    "ranking",
+    [
+        [fid(3), fid(4)],  # the neutral cluster-mate first: it used to shadow the truth (F-002)
+        [fid(4), fid(3)],
+        [fid(3), fid(5), fid(4)],  # behind an unrelated neutral and its cluster-mate
+        [fid(5), fid(3), fid(4)],
+        [fid(4), fid(5), fid(3)],
+    ],
+)
+def test_a_truth_is_credited_wherever_neutral_features_appear(ranking: list[str]) -> None:
+    """Neutral removal precedes deduplication, so a neutral never represents its cluster."""
     clusters = {fid(j): j for j in range(10)} | {fid(4): 3}
     key = key_with(
-        group("g0", part(fid(4))), group("g1", part(fid(3)), label=GroupLabel.NEUTRAL), clusters=clusters
+        group("g0", part(fid(4))),
+        group("g1", part(fid(3)), label=GroupLabel.NEUTRAL),
+        group("g2", part(fid(5)), label=GroupLabel.NEUTRAL),
+        clusters=clusters,
     )
-    assert score_world([fid(3), fid(4)], key, chance=NO_CHANCE).raw_recovery == 0.0
+    score = score_world(ranking, key, chance=NO_CHANCE)
+    assert (score.raw_recovery, score.find_exact, score.abstained) == (1.0, 1.0, False)
 
 
 def test_a_feature_in_both_a_neutral_and_a_recoverable_set_is_not_neutral() -> None:
@@ -97,26 +111,23 @@ def test_exact_credit_falls_back_to_group_credit_when_exact_is_unrecoverable() -
     assert score_world([fid(6)], key, chance=NO_CHANCE).find_exact == 1.0
 
 
-def test_credit_is_one_to_one_by_maximum_matching_by_default() -> None:
-    """D12 provisional default: the top R are matched to parts to maximise credit,
+def test_credit_is_one_to_one_by_maximum_matching() -> None:
+    """The top R are matched to parts to maximise credit,
     so [f01, f00] and [f00, f01] both credit both groups."""
-    assert scoring.CREDIT_ORDER == "max_matching"
     key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1))))
     assert score_world([fid(1), fid(0)], key, chance=NO_CHANCE).raw_recovery == 1.0
     assert score_world([fid(0), fid(1)], key, chance=NO_CHANCE).raw_recovery == 1.0
 
 
-def test_greedy_credit_order_remains_selectable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The greedy alternative: each representative credits the first uncredited group containing it,
-    so [f01, f00] credits only g0, while [f00, f01] credits both groups."""
-    monkeypatch.setattr(scoring, "CREDIT_ORDER", "greedy")
-    key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1))))
-    assert score_world([fid(1), fid(0)], key, chance=NO_CHANCE).raw_recovery == 0.5
-    assert score_world([fid(0), fid(1)], key, chance=NO_CHANCE).raw_recovery == 1.0
+def test_matching_beyond_its_search_limit_is_an_error_not_a_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scoring, "MATCHING_LIMIT", 1)
+    key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1), fid(0))))
+    with pytest.raises(RuntimeError, match="exceeded 1 assignments"):
+        score_world([fid(1), fid(0)], key, chance=NO_CHANCE)
 
 
 def test_matching_does_not_depend_on_hidden_group_order() -> None:
-    """Greedy credit depended on the order of groups in the private key; matching does not."""
+    """Credit does not depend on the order of groups in the private key."""
     a = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(1), fid(2))))
     b = key_with(group("g1", part(fid(1), fid(2))), group("g0", part(fid(0), fid(1))))
     for ranking in ([fid(1), fid(0)], [fid(1), fid(2)], [fid(2), fid(1)]):
@@ -128,8 +139,7 @@ def test_matching_does_not_depend_on_hidden_group_order() -> None:
 
 
 def test_matching_prefers_exact_credit_when_raw_credit_ties() -> None:
-    """A substitute and its true feature both in the top R: the true feature takes the part
-    (greedy gave the slot to the substitute listed first, and Strict nothing)."""
+    """A substitute and its true feature both in the top R: the true feature takes the part."""
     key = key_with(group("g0", part(fid(0), fid(1))), group("g1", part(fid(5))))
     score = score_world([fid(1), fid(0)], key, chance=NO_CHANCE)
     assert (score.raw_recovery, score.find_exact) == (0.5, 0.5)

@@ -1,14 +1,12 @@
 """Build the site's data files from the real runtime.
 
-* ``src/data/results.json`` - one row per agent with its scorecard overall, by mode,
-  by mechanic and by difficulty tier. Reference, baseline and cheater rows are real
-  scorecards computed now on the toy fixture worlds. Frontier rows come from
-  ``results/frontier/*/`` scorecards; without them there are no frontier rows (no
-  number on the site is invented). The site renders whatever this file says, so adding
-  runs is a data change.
+* ``src/data/smoke.json`` - the stdout of the public ``onc-agi smoke`` command, run in
+  process on the packaged fixture worlds; the page prints it verbatim as expected output.
 * ``src/data/oracle.json`` - the oracle's method demonstrated on a toy world: the
   null maximum statistic over permuted outcomes, its 95th-percentile threshold,
   and detection rates of the planted cause and its stand-in as the sample grows.
+* ``src/data/journey.json`` - one recorded sequential episode on a toy world, scored, and
+  the same policy played on every toy world.
 
 Run from the repository root::
 
@@ -17,11 +15,11 @@ Run from the repository root::
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import math
-import os
 import sys
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -31,15 +29,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import build_toy  # noqa: E402
-from onc_agi.adapters.agents import CHEATERS, make_agent  # noqa: E402
 from onc_agi.adapters.cli import fixture_store  # noqa: E402
-from onc_agi.core.schema import INTERFACE_VERSION, Scorecard, Tier, WorldScore  # noqa: E402
+from onc_agi.adapters.cli import main as cli_main  # noqa: E402
+from onc_agi.core.schema import Scorecard, Tier  # noqa: E402
 from onc_agi.infra.bundles import FileWorldStore  # noqa: E402
 from onc_agi.services import scoring  # noqa: E402
 from onc_agi.services.kit import evaluate  # noqa: E402
 
 OUT = ROOT / "site" / "src" / "data"
-FRONTIER = ROOT / "site" / "results" / "frontier"
 
 MECHANIC = {
     "toy-driver": "generating",
@@ -52,63 +49,6 @@ MECHANIC = {
     "toy-neutral": "neutral_group",
     "toy-null-a": "no_signal",
     "toy-null-b": "no_signal",
-}
-# benchmark stores: the build manifest's role per world (public train only), mapped to site mechanic ids
-ROLE_MECHANIC = {
-    "generating": "generating",
-    "stand_in": "stand_in",
-    "wrong_type": "wrong_data_type",
-    "confounder": "observed_confounder",
-    "leak": "leak",
-    "interaction": "interaction",
-    "module": "module",
-    "null": "no_signal",
-    "hidden_cause": "hidden_cause",
-    "mediator": "mediator",
-    "collider": "collider",
-    "mixture": "mixture",
-    "shift": "shift",
-    "effect_modifier": "effect_modifier",
-    "nonlinear": "nonlinear",
-}
-MECHANIC_LABEL = {
-    "generating": "Generating feature",
-    "stand_in": "Stand-in",
-    "wrong_data_type": "Cause in another data type",
-    "observed_confounder": "Observed confounder",
-    "leak": "Leak",
-    "interaction": "Interaction",
-    "module": "Module",
-    "neutral_group": "Neutral group",
-    "no_signal": "No signal",
-    "hidden_cause": "Hidden cause",
-    "mediator": "Mediator",
-    "collider": "Collider",
-    "mixture": "Contradictory mixture",
-    "shift": "Cross-cohort shift",
-    "effect_modifier": "Effect modifier",
-    "nonlinear": "Nonlinear",
-}
-REFERENCES = {"oracle": "Oracle", "random": "Random list"}
-BASELINES = {
-    "univariate_bh": "Univariate + BH",
-    "lasso": "Lasso",
-    "elastic_net": "Elastic net",
-    "stability": "Stability selection",
-    "random_forest": "Random forest",
-    "forward_score": "Forward score selection",
-}
-CHEATER_LABELS = {
-    "giant_list": "Giant list",
-    "always_empty": "Always empty",
-    "random_abstain": "Random abstention",
-    "leak_exploiter": "Leak exploiter",
-    "auc_maximiser": "AUC maximiser",
-    "metadata_only": "Metadata only",
-    "variance_ranker": "Variance ranker",
-    "hub_ranker": "Hub ranker",
-    "cluster_size_ranker": "Cluster-size ranker",
-    "synthetic_ranker": "Synthetic-column ranker",
 }
 
 
@@ -131,166 +71,14 @@ def summary(card: Scorecard) -> dict[str, Any]:
     }
 
 
-WORLD_MECHANIC: dict[str, str] = {}  # filled from a benchmark store's build manifests
-
-
-def load_manifest_roles(root: Path) -> None:
-    """Map each world to its mechanic from ``manifests/*.json`` (public-train build manifests)."""
-    for path in sorted(root.glob("manifests/*.json")):
-        for world in json.loads(path.read_text())["worlds"]:
-            mech = ROLE_MECHANIC.get(world["role"])
-            if mech is not None:
-                WORLD_MECHANIC[world["world_id"]] = mech
-    if WORLD_MECHANIC:
-        WORLD_MECHANIC.setdefault("", "no_signal")  # keeps "no_signal" among the store's mechanics
-
-
-def by_mechanic(scores: list[WorldScore]) -> dict[str, float]:
-    buckets: dict[str, list[float]] = defaultdict(list)
-    for s in scores:
-        # a null twin keeps its signal world's role in the manifest; its mechanic is "no signal"
-        mech = (
-            "no_signal"
-            if s.is_null and s.world_id in WORLD_MECHANIC
-            else WORLD_MECHANIC.get(s.world_id) or MECHANIC.get(s.world_id.rsplit("-", 1)[0])
-        )
-        if mech is None:
-            continue
-        buckets[mech].append(
-            float(s.restrained) if s.is_null else (0.0 if s.leaked else s.find) * s.efficiency
-        )
-    return {m: round(float(np.mean(v)), 4) for m, v in buckets.items()}
-
-
-def evaluate_agent(name: str, store: FileWorldStore, ids_by_mode: dict[str, list[str]]) -> dict[str, Any]:
-    all_scores: list[WorldScore] = []
-    modes: dict[str, Any] = {}
-    for mode, ids in ids_by_mode.items():
-        # Sequential baselines use the fixed-design pipeline (recruit every stratum, assay all).
-        card, _ = evaluate(
-            make_agent(name, store), store, Tier.PUBLIC_TRAIN, world_ids=ids, bootstrap_draws=400
-        )
-        modes[mode] = summary(card)
-        all_scores.extend(card.worlds)
-    total = scoring.aggregate(
-        all_scores, scorecard_id=f"site-{name}", agent=name, tier=Tier.PUBLIC_TRAIN, bootstrap_draws=400
-    )
-    return {
-        "overall": summary(total),
-        "by_mode": modes,
-        "by_mechanic": by_mechanic(all_scores),
-        "by_tier": {str(t.difficulty_tier): r(t.discovery_score) for t in total.per_tier},
-    }
-
-
-def scorecard_summary(card: Scorecard) -> dict[str, Any]:
-    row = summary(card)
-    n = max(1, card.n_worlds)
-    if card.tokens is not None:
-        row["tokens_per_world"] = round(card.tokens / n)
-    if card.cost_usd is not None:
-        row["cost_usd_per_world"] = round(card.cost_usd / n, 4)
-    return row
-
-
-def frontier_rows() -> list[dict[str, Any]]:
-    """Final frontier rows from runtime scorecards.
-
-    Layout: ``site/results/frontier/<agent-id>/meta.json`` (``{"label", "model", "harness"}``)
-    plus one ``Scorecard`` JSON per mode, ``full_access.json`` and ``sequential.json``,
-    and optionally ``overall.json`` (a scorecard over both modes). Without ``overall.json``
-    the overall score is the mean of the two modes and is marked as such. Per-mechanic
-    results need per-world scores, which only public-train scorecards carry; eval-tier
-    scorecards leave that row empty.
-    """
-    rows: list[dict[str, Any]] = []
-    if not FRONTIER.exists():
-        return rows
-    for folder in sorted(p for p in FRONTIER.iterdir() if p.is_dir()):
-        meta = json.loads((folder / "meta.json").read_text())
-        modes = {
-            m: Scorecard.model_validate_json((folder / f"{m}.json").read_text())
-            for m in ("full_access", "sequential")
-            if (folder / f"{m}.json").exists()
-        }
-        if not modes:
-            raise SystemExit(f"{folder}: no full_access.json or sequential.json scorecard")
-        overall_path = folder / "overall.json"
-        if overall_path.exists():
-            overall_card = Scorecard.model_validate_json(overall_path.read_text())
-            overall = scorecard_summary(overall_card)
-            worlds = list(overall_card.worlds)
-        else:
-            per = [scorecard_summary(c) for c in modes.values()]
-            overall = {
-                k: (
-                    r(float(np.mean([p[k] for p in per]))) if all(p.get(k) is not None for p in per) else None
-                )
-                for k in per[0]
-            }
-            overall["combined"] = "mean of modes"
-            worlds = [w for c in modes.values() for w in c.worlds]
-        rows.append(
-            {
-                "id": folder.name,
-                "label": meta["label"],
-                "kind": "frontier",
-                "provenance": meta.get("provenance", "benchmark"),
-                "model": meta.get("model"),
-                "harness": meta.get("harness"),
-                "overall": overall,
-                "by_mode": {m: scorecard_summary(c) for m, c in modes.items()},
-                "by_mechanic": by_mechanic(worlds) if worlds else {},
-                "by_tier": {},
-            }
-        )
-    return rows
-
-
-def results() -> dict[str, Any]:
-    # Default: the packaged toy fixtures. For the benchmark release point ONC_AGI_SITE_STORE at
-    # a public-train benchmark store; reference, baseline and cheater rows are then real runs.
-    custom = os.environ.get("ONC_AGI_SITE_STORE")
-    store = FileWorldStore(Path(custom) if custom else fixture_store())
-    provenance = "benchmark" if custom else "toy-fixture"
-    if custom:
-        load_manifest_roles(Path(custom))
-    ids = store.world_ids(Tier.PUBLIC_TRAIN)
-    cards = {w: store.card(w) for w in ids}
-    ids_by_mode = {
-        "full_access": [w for w in ids if cards[w].mode.value == "full_access"],
-        "sequential": [w for w in ids if cards[w].mode.value == "sequential"],
-    }
-    agents: list[dict[str, Any]] = []
-    for table, kind in ((REFERENCES, "reference"), (BASELINES, "baseline"), (CHEATER_LABELS, "cheater")):
-        for name, label in table.items():
-            assert kind != "cheater" or name in CHEATERS
-            row = evaluate_agent(name, store, ids_by_mode)
-            agents.append({"id": name, "label": label, "kind": kind, "provenance": provenance, **row})
-    mechanics = list(dict.fromkeys(WORLD_MECHANIC.values() if custom else MECHANIC.values()))
-    mechanics = [m for m in MECHANIC_LABEL if m in mechanics]
-    # agent rows come from real scorecards only; until frontier runs exist there are no frontier rows
-    agents = frontier_rows() + agents
-    return {
-        "schema": "onc-agi-site-results/1",
-        "status": "first-pass",
-        "interface_version": INTERFACE_VERSION,
-        "scorer": scoring.SCORER_VERSION,
-        "worlds": {
-            "source": "benchmark public train" if custom else "toy fixtures",
-            "count": len(ids),
-            "by_mode": {m: len(v) for m, v in ids_by_mode.items()},
-            # worlds in the release downloads, when the scored store is a subset of them
-            **(
-                {"published": int(os.environ["ONC_AGI_SITE_PUBLISHED_WORLDS"])}
-                if os.environ.get("ONC_AGI_SITE_PUBLISHED_WORLDS")
-                else {}
-            ),
-        },
-        "mechanics": [{"id": m, "label": MECHANIC_LABEL[m]} for m in mechanics],
-        "tiers": [0, 1, 2],
-        "agents": agents,
-    }
+def smoke() -> dict[str, Any]:
+    """The public ``onc-agi smoke`` command, run in process; its stdout is kept verbatim."""
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = cli_main(["smoke"])
+    if code != 0:
+        raise SystemExit(f"onc-agi smoke exited with {code}")
+    return {"command": "uv run onc-agi smoke", "output": out.getvalue()}
 
 
 # --------------------------------------------------------------------------- oracle demonstration
@@ -573,9 +361,8 @@ def journey() -> dict[str, Any]:
     )
 
     def breakdown(listed: list[str]) -> dict[str, Any]:
-        neutral = scoring._neutral_features(key)
-        reps = scoring._representatives(listed, key.clusters, neutral)
-        top = reps[: key.depth]
+        reps = list(scoring.representatives(listed, key))
+        top = scoring.top_representatives(listed, key)
         credit = scoring._credit(top, key)
         chance_raw, _chance_exact = scoring.chance_recovery(key, listed)
         score = scoring.score_world(listed, key, spent=ep.spent, sequential=True)
@@ -654,10 +441,10 @@ def journey() -> dict[str, Any]:
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "results.json").write_text(json.dumps(results(), indent=1) + "\n")
+    (OUT / "smoke.json").write_text(json.dumps(smoke(), indent=1) + "\n")
     (OUT / "oracle.json").write_text(json.dumps(oracle(), indent=1) + "\n")
     (OUT / "journey.json").write_text(json.dumps(journey(), indent=1) + "\n")
-    print(f"wrote {OUT.relative_to(ROOT)}/results.json, oracle.json and journey.json")
+    print(f"wrote {OUT.relative_to(ROOT)}/smoke.json, oracle.json and journey.json")
     return 0
 
 

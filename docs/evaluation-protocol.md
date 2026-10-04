@@ -21,7 +21,7 @@ This page fixes how a result becomes a leaderboard entry, so that two numbers on
 | Episodes per world per scorecard | 1 (`epochs = 1`); repeat by opening another scorecard |
 | Model parameters | The provider's defaults, unless the entry states otherwise. Reasoning effort, temperature and token limits are recorded with the entry |
 
-Every scorecard records its harness label (`inspect-standard-1.1+<digest>`), its scorer and engine labels, and the oracle version. The digests change whenever the code that determines what a model sees, or how it is scored, changes. Entries with different labels are never ranked together.
+Every scorecard records its harness label (`inspect-standard-1.1+<digest>`), its scorer and engine labels, and the oracle version. The digests change whenever the code that determines what a model sees, or how it is scored, changes; edits to comments, docstrings or formatting leave them unchanged. Entries with different labels are never ranked together.
 
 ## How many worlds, how many runs
 

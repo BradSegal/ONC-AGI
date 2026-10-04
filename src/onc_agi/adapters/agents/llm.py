@@ -48,6 +48,7 @@ import httpx
 from pydantic import ValidationError
 
 from onc_agi.adapters.profiles import Profile
+from onc_agi.core.digest import behaviour_label
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.schema import Action, Assay, Mode, Recruit, Submit, WorldCard
 from onc_agi.services.engine import EpisodeView
@@ -109,10 +110,7 @@ class HarnessConfig:
 def harness_label(config: HarnessConfig) -> str:
     """``openai-tools-1.0+<8 hex>`` over the config, this module and the standard harness label,
     so a prompt, tool, card or image change changes the label."""
-    h = hashlib.sha256(config.digest().encode())
-    h.update(Path(__file__).read_bytes())
-    h.update(_standard_harness().HARNESS.encode())
-    return f"{HARNESS_NAME}+{h.hexdigest()[:8]}"
+    return behaviour_label(HARNESS_NAME, Path(__file__), extra=(config.digest(), _standard_harness().HARNESS))
 
 
 def _standard_harness() -> Any:

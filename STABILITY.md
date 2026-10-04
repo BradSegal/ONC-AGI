@@ -8,7 +8,7 @@
 |---|---|---|
 | `1.0.0-rc1` | Interface specification, runtime, toy fixtures, template agents, conformance | 2026-10-03 |
 | `1.0.0-rc2` | Security and correctness fixes to the hosted scorecards, matched chance and sequential agents | 2026-10-03 |
-| `1.0.0-rc3` (this) | 2,489 public-train benchmark worlds, first-pass results, the agents kit and the website | 2026-10-04 |
+| `1.0.0-rc3` (this; superseded) | 2,489 public-train benchmark worlds (8 unsolvable), first-pass results (withdrawn), the agents kit and the website | 2026-10-04 |
 | `1.0.0-rc*` | Interface fixes from collaborator feedback (additive only) | Until the feedback freeze |
 | `1.0.0` | Frozen interface | **Feedback freeze: 2026-10-03 23:00 BST** |
 | Evaluation release | Hosted evaluation server for the hidden tiers | After independent assurance |

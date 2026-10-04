@@ -194,29 +194,25 @@ def test_the_unfloored_score_is_never_positive_when_neither_component_is() -> No
 
 
 @pytest.mark.parametrize(
-    ("find_signed", "restraint", "sign_guard", "product", "min_guard"),
+    ("find_signed", "restraint", "expected"),
     [
-        (0.5, 0.4, 0.2, 0.2, 0.2),  # both non-negative: every rule is the product
-        (-0.2, 0.5, -0.1, -0.1, -0.2),
-        (0.5, -0.2, -0.1, -0.1, -0.2),
-        (-0.2, -0.5, -0.1, 0.1, -0.5),  # the D21 case: the plain product turns positive
-        (0.0, -0.5, -0.0, -0.0, -0.5),
+        (0.5, 0.4, 0.2),  # both non-negative: the product
+        (-0.2, 0.5, -0.1),
+        (0.5, -0.2, -0.1),
+        (-0.2, -0.5, -0.1),  # the plain product would turn positive
+        (0.0, -0.5, -0.0),
     ],
 )
-def test_the_unfloored_rules_differ_only_when_a_component_is_negative(
-    find_signed: float, restraint: float, sign_guard: float, product: float, min_guard: float
+def test_the_unfloored_estimate_is_negative_whenever_a_component_is(
+    find_signed: float, restraint: float, expected: float
 ) -> None:
-    """D21 alternatives; ``sign_guard`` is the provisional default."""
     from onc_agi.services import scoring
 
-    assert scoring.UNFLOORED_RULE == "sign_guard"
-    for rule, expected in (("sign_guard", sign_guard), ("product", product), ("min_guard", min_guard)):
-        assert scoring.unfloored_estimate(find_signed, restraint, rule) == pytest.approx(expected), rule  # type: ignore[arg-type]
-    assert scoring.unfloored_estimate(find_signed, restraint) == pytest.approx(sign_guard)
+    assert scoring.unfloored_estimate(find_signed, restraint) == pytest.approx(expected)
 
 
-def test_the_unfloored_rules_propagate_nan() -> None:
+def test_the_unfloored_estimate_propagates_nan() -> None:
     from onc_agi.services import scoring
 
-    for rule in ("sign_guard", "product", "min_guard"):
-        assert math.isnan(scoring.unfloored_estimate(float("nan"), 0.5, rule))  # type: ignore[arg-type]
+    assert math.isnan(scoring.unfloored_estimate(float("nan"), 0.5))
+    assert math.isnan(scoring.unfloored_estimate(0.5, float("nan")))

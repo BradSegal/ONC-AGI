@@ -23,7 +23,6 @@ provider (``<NAME>_BASE_URL`` and ``<NAME>_API_KEY`` in the environment).
 
 from __future__ import annotations
 
-import hashlib
 import io
 import tempfile
 from collections.abc import Mapping
@@ -40,6 +39,7 @@ from inspect_ai.solver import Generate, Solver, TaskState, basic_agent, solver
 from inspect_ai.tool import Tool, ToolError, bash, python, tool
 from inspect_ai.util import sandbox, store
 
+from onc_agi.core.digest import behaviour_label
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.schema import (
     Action,
@@ -63,16 +63,8 @@ from onc_agi.services.scorecards import MIN_EVAL_WORLDS, ScorecardService
 SANDBOX_COMPOSE = Path(__file__).parent / "sandbox" / "compose.yaml"
 
 
-def _harness_label() -> str:
-    """``inspect-standard-1.1+<8 hex>`` over this module and the sandbox image: what every model sees
-    and can do. A card, prompt, tool or image change changes the label, as the scorer's label does.
-    """
-    h = hashlib.sha256(Path(__file__).read_bytes())
-    h.update((Path(__file__).parent / "sandbox" / "Dockerfile").read_bytes())
-    return f"inspect-standard-1.1+{h.hexdigest()[:8]}"
-
-
-HARNESS = _harness_label()
+# What every model sees and can do: a card, prompt, tool or image change changes the label.
+HARNESS = behaviour_label("inspect-standard-1.1", Path(__file__), SANDBOX_COMPOSE.with_name("Dockerfile"))
 SAFETY_TIMEOUT_SECONDS = 1800
 OPERATOR_KEY = "inspect-standard"  # caller identity for caps; the harness runs operator-side
 

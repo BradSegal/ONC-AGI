@@ -18,9 +18,9 @@ Scoring takes six steps.
 
 1. **Validation.** An unknown feature id or a repeated feature is refused with a typed error.
 2. **Leak reject.** If any listed feature is in the reject set, the world scores Find 0 wherever the leak appears in the list, and the world counts toward Leak rate.
-3. **Representatives.** The list is reduced to its first-listed feature per cluster. Near-duplicates therefore neither earn extra credit nor use extra depth.
-4. **Neutral removal.** Members of neutral groups' equivalence sets are dropped. They neither earn credit nor use depth.
-5. **Credit at depth R.** The top R remaining representatives earn credit one to one. They are matched to parts so that the most parts are credited, and among equally good matchings the most are credited exactly. A representative can credit a part when it is in that part's equivalence set. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Credit therefore depends on which representatives reach the top R, not on their order inside it, nor on the private order of groups in the key. Each group's credit rule then applies:
+3. **Neutral removal.** Members of neutral groups' equivalence sets are dropped. They neither earn credit, use depth nor represent a cluster.
+4. **Representatives.** The rest of the list is reduced to its first-listed feature per cluster. Near-duplicates therefore neither earn extra credit nor use extra depth.
+5. **Credit at depth R.** The top R representatives earn credit one to one. They are matched to parts so that the most parts are credited, and among equally good matchings the most are credited exactly. A representative can credit a part when it is in that part's equivalence set. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Credit therefore depends on which representatives reach the top R, not on their order inside it, nor on the private order of groups in the key. Each group's credit rule then applies:
    - `single`: one part, credited by any member of its equivalence set;
    - `joint` (interactions, modifiers, mixtures): all parts, or nothing;
    - `weighted_coverage` (modules): the covered share of absolute weights, times the number of parts.
@@ -221,7 +221,7 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["d", "e"], "expect": {"restrained": false, "abstained": false}}
 ```
 
-**Deduplication comes before neutral removal.** A neutral feature listed first represents its cluster, and the cluster then contributes nothing. Here `n` is neutral but shares a cluster with the true feature `a`. The cluster structure is truth-independent, so an agent cannot use this to hide a claim; it can only lose credit.
+**Neutral removal comes before deduplication.** A neutral feature never represents its cluster, so listing it cannot cost a cluster-mate its credit. Here `n` is neutral but shares a cluster with the true feature `a`, and `a` earns full credit wherever `n` is listed.
 
 ```json scoring-world name=spec-shadow
 {
@@ -241,11 +241,11 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 ```
 
 ```json scoring-example world=spec-shadow
-{"ranking": ["n", "a"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 0.0, "abstained": true}}
+{"ranking": ["n", "a"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0, "find_exact": 1.0, "abstained": false}}
 ```
 
 ```json scoring-example world=spec-shadow
-{"ranking": ["a", "n"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0}}
+{"ranking": ["a", "n"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0, "find_exact": 1.0, "abstained": false}}
 ```
 
 **A leak behind a cluster-mate still zeroes the world.** The leak check reads the whole list before deduplication.
@@ -254,7 +254,7 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["a", "a2", "b", "L"], "chance": [0.1, 0.05], "expect": {"leaked": true, "find": 0.0}}
 ```
 
-**Overlapping equivalence sets are resolved by maximum matching**. `v` is equivalent to the true feature `u` and is also a true feature itself. Under the earlier greedy rule, listing `v` first spent it on `u`'s part, so `u` had no part left and the list scored 0.5. Maximum matching assigns `v` to its own part and `u` to `u`'s, so both orders earn full and exact credit. The greedy rule remains selectable (`CREDIT_ORDER = "greedy"`) for reproducing earlier scorecards.
+**Overlapping equivalence sets are resolved by maximum matching**. `v` is equivalent to the true feature `u` and is also a true feature itself. Maximum matching assigns `v` to its own part and `u` to `u`'s, so both orders earn full and exact credit.
 
 ```json scoring-world name=spec-overlap
 {
@@ -281,7 +281,7 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["v", "u"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0, "find_exact": 1.0}}
 ```
 
-**A substitute listed before its true feature no longer costs Strict credit.** In `spec-w`, `c` is oracle-equivalent to `b`. Listing `c` and then `b` puts both in the top R = 2. Only one can credit `b`'s part, and matching gives it to `b` itself, so Strict credits that part exactly: `find_exact = (0.5 − 0.05) / 0.95`. Raw credit is 0.5, because `a`'s part is not listed. Under greedy credit, `c` took the part and `find_exact` was 0.
+**A substitute listed before its true feature does not cost Strict credit.** In `spec-w`, `c` is oracle-equivalent to `b`. Listing `c` and then `b` puts both in the top R = 2. Only one can credit `b`'s part, and matching gives it to `b` itself, so Strict credits that part exactly: `find_exact = (0.5 − 0.05) / 0.95`. Raw credit is 0.5, because `a`'s part is not listed.
 
 ```json scoring-example world=spec-w
 {"ranking": ["c", "b"], "chance": [0.1, 0.05],
@@ -355,7 +355,7 @@ Over a set of worlds:
 - **Find** = mean over signal worlds of `find × efficiency`;
 - **Restraint** = (mean over null worlds of `restrained × efficiency`) − (abstention rate on signal worlds). This is Youden's J: always-empty and always-claiming agents both score 0;
 - **Discovery Score** = `Find × max(0, Restraint)`, which is the headline;
-- **unfloored** = `find_signed × Restraint`, made negative whenever either factor is negative. It is the estimand for the scorecard interval. The release gates test signed Find and Restraint separately;
+- **unfloored** = `find_signed × Restraint`, made negative whenever either factor is negative, so two below-chance components never multiply into a positive score. It is the estimand for the scorecard interval. The release gates test signed Find and Restraint separately;
 - **Strict** = the same with exact credit.
 
 Undefined values are `null`: Restraint without null worlds, and Find without signal worlds. The interval is a 2.5–97.5% percentile bootstrap of the unfloored score, resampling signal and null worlds separately. Per-tier rows put null worlds in the tier they inherited from their source world.
@@ -407,7 +407,7 @@ For lists whose top R representatives each fall into at most one part's equivale
 - the `joint` rule;
 - matched chance normalisation.
 
-Strict never exceeds PyPlasmode's `evaluate_ranking` exact recall over the same top R. Under maximum matching it equals that recall when every listed substitute's true feature is also in the top R, because matching gives each part to its true feature where it can. Under the greedy alternative a substitute listed before its true feature took the slot, so the later true feature earned nothing. PyPlasmode's `evaluate_module` gives the weighted coverage of a module part set. The agreement is checked by a property test maintained alongside the world builder.
+Strict never exceeds PyPlasmode's `evaluate_ranking` exact recall over the same top R. Under maximum matching it equals that recall when every listed substitute's true feature is also in the top R, because matching gives each part to its true feature where it can. PyPlasmode's `evaluate_module` gives the weighted coverage of a module part set. The agreement is checked by a property test maintained alongside the world builder.
 
 ## 5. Latency envelope
 
