@@ -206,6 +206,16 @@ if (mobile)
     else ScrollTrigger.create({ trigger: el, start: "top 80%", once: true, onEnter: play });
   });
 
+/* ------------------------------------------------------------------ phones: open wide figures on their point */
+
+if (mobile)
+  requestAnimationFrame(() =>
+    $$<HTMLElement>(".hard__figure, .pane__state--1").forEach((el) => {
+      const focus = Number(el.dataset.focus ?? 0.45);
+      el.scrollLeft = Math.max(0, focus * el.scrollWidth - el.clientWidth / 2);
+    }),
+  );
+
 /* ------------------------------------------------------------------ try one */
 
 const tryRoot = document.querySelector<HTMLElement>("#try");
@@ -228,7 +238,7 @@ $$<HTMLButtonElement>("[data-copy]").forEach((button) =>
 
 /* ------------------------------------------------------------------ masthead */
 
-const links = $$<HTMLAnchorElement>(".masthead__nav a");
+const links = $$<HTMLAnchorElement>('.masthead__nav a[href^="#"]');
 const navObserver = new IntersectionObserver(
   (entries) =>
     entries.forEach((e) => {

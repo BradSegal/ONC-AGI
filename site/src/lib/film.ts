@@ -19,8 +19,23 @@ type Clip = {
 const media = mediaJson as unknown as Record<string, Clip> & { captions?: Record<string, string> };
 
 const BASE = `${import.meta.env.BASE_URL}media/`;
-/** AV1 where the browser decodes it (smaller files); H.264 everywhere else. */
-const ext = document.createElement("video").canPlayType('video/mp4; codecs="av01.0.08M.08"') === "probably" ? "av1" : "avc";
+/**
+ * AV1 only where the device decodes it smoothly and power-efficiently, which in practice means in
+ * hardware; H.264, decoded in hardware on nearly every laptop and phone, everywhere else.
+ */
+let ext: "av1" | "avc" = "avc";
+const codecReady = (async () => {
+  try {
+    if (document.createElement("video").canPlayType('video/mp4; codecs="av01.0.08M.08"') !== "probably" || !navigator.mediaCapabilities) return;
+    const info = await navigator.mediaCapabilities.decodingInfo({
+      type: "file",
+      video: { contentType: 'video/mp4; codecs="av01.0.08M.08"', width: 1920, height: 1080, bitrate: 2_100_000, framerate: 60 },
+    });
+    if (info.supported && info.smooth && info.powerEfficient) ext = "av1";
+  } catch {
+    /* H.264 */
+  }
+})();
 const src = (name: string) => cache.get(name) ?? `${BASE}${name}.${ext}.mp4`;
 const still = (name: string) => `${BASE}${name}-end.webp`;
 const cache = new Map<string, string>(); // clip name -> blob URL once preloaded
@@ -41,6 +56,7 @@ function video(cls: string): HTMLVideoElement {
 /** Labels drawn over a film, mapped through the video's object-fit: cover crop. */
 class Overlay {
   private els = new Map<string, HTMLElement>();
+  private wanted = new Set<string>();
   constructor(
     readonly host: HTMLElement,
     readonly frame: () => HTMLVideoElement,
@@ -51,12 +67,20 @@ class Overlay {
     const v = this.frame();
     const vw = v.videoWidth || 16;
     const vh = v.videoHeight || 9;
-    const cw = this.host.clientWidth;
-    const ch = this.host.clientHeight;
+    // the film may sit inset in its host: map through the video's own rectangle
+    const hr = this.host.getBoundingClientRect();
+    const vr = v.getBoundingClientRect();
+    const cw = vr.width;
+    const ch = vr.height;
     const scale = Math.max(cw / vw, ch / vh);
-    const ox = (cw - vw * scale) * this.position[0];
-    const oy = (ch - vh * scale) * this.position[1];
+    const ox = vr.left - hr.left + (cw - vw * scale) * this.position[0];
+    const oy = vr.top - hr.top + (ch - vh * scale) * this.position[1];
+    const minX = vr.left - hr.left + 24;
+    const maxX = vr.left - hr.left + cw - 24;
+    const minY = vr.top - hr.top + 12;
+    const maxY = vr.top - hr.top + ch - 12;
     const keep = new Set(labels.map((l) => l.key));
+    this.wanted = keep;
     for (const [key, el] of this.els) if (!keep.has(key)) el.classList.remove("is-on");
     for (const l of labels) {
       let el = this.els.get(l.key);
@@ -79,11 +103,12 @@ class Overlay {
         }
       }
       // keep every label inside the visible frame, whatever the crop
-      const px = Math.min(cw - 24, Math.max(24, ox + l.x * vw * scale));
-      const py = Math.min(ch - 12, Math.max(12, oy + l.y * vh * scale));
+      const px = Math.min(maxX, Math.max(minX, ox + l.x * vw * scale));
+      const py = Math.min(maxY, Math.max(minY, oy + l.y * vh * scale));
       el.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px)`;
       const node = el;
-      if (!node.classList.contains("is-on")) requestAnimationFrame(() => node.classList.add("is-on"));
+      // reveal on the next frame, unless a later state has already dropped this label
+      if (!node.classList.contains("is-on")) requestAnimationFrame(() => this.wanted.has(l.key) && node.classList.add("is-on"));
     }
   }
 }
@@ -102,6 +127,10 @@ function sampleAt(clip: Clip, t: number): Placed[] {
 /* ------------------------------------------------------------------ the opening */
 
 export function opening(host: HTMLElement, motionless: boolean): void {
+  void codecReady.then(() => openingReady(host, motionless));
+}
+
+function openingReady(host: HTMLElement, motionless: boolean): void {
   const reduced = motionless || saveData;
   const shape = matchMedia("(max-width: 900px)").matches ? "square" : "wide";
   const intro = media[`hero-${shape}-intro`];
@@ -197,6 +226,7 @@ export function stage(host: HTMLElement, motionless: boolean): Stage {
   let cur: string | null = null; // the state the film shows (or is heading to)
   let want: string | null = null;
   let busy = false;
+  let playing: { el: HTMLVideoElement; to: string } | null = null;
 
   const settle = (to: string, clip: Clip) => {
     cur = to;
@@ -214,12 +244,18 @@ export function stage(host: HTMLElement, motionless: boolean): Stage {
     const back = front === a ? b : a;
     back.src = src(clip.name);
     back.currentTime = 0;
+    // a reader already further on: this transition runs fast so the film catches up smoothly
+    back.playbackRate = want && want !== to ? 2 : 1;
+    playing = { el: back, to };
     const swap = () => {
       back.classList.add("is-on");
       front.classList.remove("is-on");
       front = back;
     };
-    back.onended = () => settle(to, clip);
+    back.onended = () => {
+      playing = null;
+      settle(to, clip);
+    };
     void back.play().then(swap).catch(() => jump(to));
   };
   /** Show a state's settled frame without playing (deep links, large jumps, reduced motion). */
@@ -238,7 +274,10 @@ export function stage(host: HTMLElement, motionless: boolean): Stage {
   };
   const go = (target: string) => {
     want = target;
-    if (busy) return;
+    if (busy) {
+      if (playing && playing.to !== target) playing.el.playbackRate = 2;
+      return;
+    }
     if (target === cur) return;
     const clip = cur === null ? (target === "build-0" ? edge("enter", "build-0") : undefined) : edge(cur, target);
     if (clip && !reduced) play(clip, target);

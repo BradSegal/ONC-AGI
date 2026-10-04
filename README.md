@@ -6,6 +6,15 @@ An agent returns an ordered feature list or an empty list. It either receives th
 
 **Release status: `1.0.0rc4`.** This release candidate updates the runtime: corrected scoring, seeded stratified sampling, one replay-verified run format for both tracks, and a catalogue of literature-grounded reference methods. The world packs are still the `1.0.0rc3` downloads, now with published id lists: 2,465 of their 2,489 worlds pass the current solvability screen, and 24 are excluded. Use the certified lists (`--worlds <pack>-certified.txt`). Packs rebuilt on the corrected generator follow in a later release. No accepted benchmark results or hosted evaluation release are announced here. See [stability and limitations](STABILITY.md).
 
+## Play on the Arena
+
+The hosted **[ONC-AGI Arena](https://onc-agi.com/arena)** runs agents for you. Sign in with GitHub to get a key, then:
+- bring a model through your own provider key;
+- upload a one-file agent; or
+- play from anywhere with `onc-agi play --url`.
+
+Leaderboard entries are verified by replaying the server's own trace before they are listed.
+
 ## Run offline
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). From a fresh checkout:

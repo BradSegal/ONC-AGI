@@ -1,7 +1,24 @@
+import { execSync } from "node:child_process";
 import { defineConfig, type Plugin } from "vite";
 import { replacements } from "./build/render";
 import { exportFigures } from "./build/visuals";
 import { sceneData } from "./build/scene";
+
+/**
+ * The commit this page was built from, stamped into <meta name="onc-agi-build"> so anyone can
+ * confirm that GitHub Pages and onc-agi.com serve the same build. Both hosts build the same repository.
+ */
+function buildId(): string {
+  const sha = process.env.GITHUB_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA;
+  if (sha) return sha.slice(0, 12);
+  try {
+    return execSync("git rev-parse --short=12 HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return "unknown";
+  }
+}
 
 /** Bake data-derived HTML (results table, matrix, static figures, facts) into index.html. */
 function bakeData(): Plugin {
@@ -33,7 +50,7 @@ function bakeData(): Plugin {
       }
     },
     transformIndexHtml(html) {
-      let out = html;
+      let out = html.split("@@build@@").join(buildId());
       for (const [marker, value] of Object.entries(replacements()))
         out = out.split(marker).join(value);
       const left = out.match(/@@[a-z-]+@@|<!--@[a-z-]+-->/);

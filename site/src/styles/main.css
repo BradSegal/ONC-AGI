@@ -348,6 +348,9 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
 .try__result p { margin: 0.6rem 0 0; color: var(--ink-2); font-size: 0.94rem; }
 .try__score { display: inline-grid; margin-right: 2rem; }
 .try__score span { font-size: 0.78rem; color: var(--ink-3); font-variation-settings: "wdth" 108; }
+.try__spendbar { position: relative; height: 4px; margin: 0.9rem 0 0.2rem; background: var(--ground-3); border-radius: 2px; }
+.try__spendbar i { position: absolute; inset: 0 auto 0 0; background: var(--band-a); border-radius: 2px; }
+.try__spendbar em { position: absolute; top: -4px; width: 1.5px; height: 12px; background: var(--ink); }
 .try__score b { font-family: var(--font-data); font-size: 2rem; font-weight: 500; color: var(--ink); line-height: 1.1; }
 
 .try__chart { margin: 0; }
@@ -367,7 +370,7 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
 .bar.is-over i { background: var(--signal); }
 .bar--post i { height: calc(var(--h) * 100%); transform: none; background: transparent; box-shadow: inset 0 0 0 1.5px var(--band-a); transition: none; }
 /* rotated about its own end, which sits under the bar's centre */
-.bar__id { position: absolute; right: 50%; top: calc(100% + 0.35rem); transform: rotate(-55deg); transform-origin: right top; font-family: var(--font-data); font-size: 0.62rem; color: var(--ink-3); white-space: nowrap; }
+.bar__id { position: absolute; right: 50%; top: calc(100% + 0.35rem); transform: rotate(-55deg); transform-origin: right top; font-family: var(--font-data); font-size: 0.7rem; color: var(--ink-3); white-space: nowrap; }
 .bar__rank { position: absolute; left: 50%; bottom: 0.35rem; transform: translate(-50%, calc(var(--h) * -100cqh)); min-width: 1.3rem; padding: 0.05rem 0.25rem; font-family: var(--font-data); font-size: 0.72rem; font-weight: 500; color: var(--ground); background: var(--ink); border-radius: 2px; transition: transform 0.8s var(--ease-out); }
 .bar__rank:empty { display: none; }
 .bar[aria-pressed="true"] i { box-shadow: 0 0 0 1.5px var(--ink); }
@@ -561,8 +564,10 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
   .claims ul { grid-template-columns: 1fr; }
   .run, .try { grid-template-columns: minmax(0, 1fr); }
   .hard-grid { grid-template-columns: minmax(0, 1fr); }
-  .hard svg { min-width: 520px; }
-  .hard { overflow-x: auto; margin-inline: calc(-1 * var(--pad)); padding-inline: var(--pad); }
+  /* dense figures keep legible text and scroll sideways; an edge fade shows there is more */
+  .hard__figure, .pane__state--1 { overflow-x: auto; margin-inline: calc(-1 * var(--pad)); padding-inline: var(--pad); -webkit-mask-image: linear-gradient(to right, transparent, #000 1.2rem, #000 calc(100% - 2.4rem), transparent); mask-image: linear-gradient(to right, transparent, #000 1.2rem, #000 calc(100% - 2.4rem), transparent); }
+  .hard__figure svg { min-width: 520px; }
+  .masthead::after { content: "›"; position: absolute; right: 0.35rem; top: 50%; translate: 0 -55%; font-size: 1.1rem; color: var(--ink-3); pointer-events: none; }
   .bars { gap: 0.4rem; }
   .bar__id { display: none; }
 }
@@ -591,7 +596,7 @@ h3 { margin: 0 0 0.6rem; font-weight: 700; font-variation-settings: "wdth" 96; f
 .film-poster.is-hidden { opacity: 0; }
 .opening__scene::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(120% 90% at 60% 60%, transparent 55%, rgb(10 18 32 / 0.55) 100%); }
 .scene-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-/* annotations: a 1px stem into the mark, then a mono label, revealed stem first */
+/* annotations: a 1px stem into the mark, then the label (prose in Archivo, ids in mono), stem first */
 .scene-label { position: absolute; left: 0; top: 0; width: 0; height: 0; font-family: var(--font-display); font-size: 0.84rem; font-variation-settings: "wdth" 100; color: var(--ink); white-space: nowrap; }
 .scene-label code { font-family: var(--font-data); font-size: 0.92em; background: none; padding: 0; color: inherit; }
 .scene-label i { position: absolute; left: 0; bottom: 0; width: 1px; height: 18px; background: currentColor; opacity: 0.85; transform: scaleY(0); transform-origin: bottom; transition: transform 0.35s var(--ease-out); }
