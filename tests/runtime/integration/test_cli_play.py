@@ -10,6 +10,7 @@ from onc_agi.adapters import cli
 from onc_agi.core.schema import Tier
 from onc_agi.infra.bundles import FileWorldStore
 from onc_agi.infra.recordings import read_recording
+from onc_agi.services import sampling
 
 FIXTURES = FileWorldStore(cli.fixture_store())
 IDS = FIXTURES.world_ids(Tier.PUBLIC_TRAIN)
@@ -41,13 +42,18 @@ def test_play_named_worlds_with_a_recording_then_explain_it(
     record = tmp_path / "run"
     args = ["play", "--agent", "univariate_bh", "--worlds", ",".join(chosen), "--record", str(record)]
     assert cli.main([*args, "--tags", "kit,test"]) == 0
-    assert f"recording in {record}" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"recording, trace and scorecard in {record}" in out
+    assert f"{record}: verified against the server: 2 worlds" in out
     assert {p.name for p in record.iterdir()} == {
         "recording.jsonl",
+        "trace.jsonl",
         "scorecard.json",
         "explanations.md",
         "explanations.json",
     }
+    assert cli.main(["replay", "--record", str(record), "--store", str(cli.fixture_store())]) == 0
+    assert f"{record}: consistent: 2 worlds" in capsys.readouterr().out
     recording = read_recording(record)
     assert recording.header is not None and list(recording.header.world_ids) == chosen
     assert recording.header.tags == ("kit", "test")
@@ -81,13 +87,55 @@ def test_play_a_class_spec_in_sequential_mode(tmp_path: Path, capsys: pytest.Cap
     assert capsys.readouterr().out.startswith("mine ")
 
 
-def test_worlds_lists_public_train_ids_modes_and_sizes(capsys: pytest.CaptureFixture[str]) -> None:
+def test_worlds_lists_public_train_ids_modes_sources_families_and_sizes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     assert cli.main(["worlds"]) == 0
     lines = capsys.readouterr().out.splitlines()
+    assert lines[0].split()[:4] == ["world_id", "mode", "source", "family"] and "rows x features" in lines[0]
     assert lines[-1] == f"{len(IDS)} public-train worlds"
-    first = lines[0].split()
-    card = FIXTURES.card(IDS[0])
-    assert first[:3] == [IDS[0], card.mode.value, str(card.n_pool)]
+    profiles = {p.world_id: p for p in sampling.world_profiles(FIXTURES, Tier.PUBLIC_TRAIN)}
+    for line, world_id in zip(lines[1:-1], IDS, strict=True):
+        card, p = FIXTURES.card(world_id), profiles[world_id]
+        assert line.split()[:7] == [
+            world_id, card.mode.value, p.source, p.family, str(card.n_pool), "x", str(len(card.features))
+        ]  # fmt: skip
+    assert "null" in {p.family for p in profiles.values()}  # nulls come from the published keys
+
+
+def test_subset_writes_a_published_id_list_once(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = tmp_path / "sets" / "fixtures-8.txt"
+    assert cli.main(["subset", "--n", "8", "--seed", "2", "--out", str(out)]) == 0
+    ids = out.read_text().splitlines()
+    sample = sampling.stratified_sample(sampling.world_profiles(FIXTURES, Tier.PUBLIC_TRAIN), 8, 2)
+    assert tuple(ids) == sample.world_ids and ids != sorted(IDS)[:8]
+    err = capsys.readouterr().err
+    assert sample.table() in err and f"wrote 8 world ids to {out}" in err
+    assert cli.main(["subset", "--n", "8", "--seed", "2", "--out", str(out)]) == 0  # same list: no change
+    assert cli.main(["subset", "--n", "8", "--seed", "3", "--out", str(out)]) == 2
+    assert (
+        "never change" in capsys.readouterr().err and tuple(out.read_text().splitlines()) == sample.world_ids
+    )
+    assert cli.main(["subset", "--n", "3", "--mode", "sequential"]) == 0
+    printed = capsys.readouterr().out.split()
+    assert len(printed) == 3 and all(FIXTURES.card(w).mode.value == "sequential" for w in printed)
+    assert cli.main(["subset", "--n", str(len(IDS) + 1)]) == 2
+    assert "cannot draw" in capsys.readouterr().err
+
+
+def test_play_n_plays_the_reported_sample_and_a_published_list_replays_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "card.json"
+    assert cli.main(["play", "--agent", "random", "--n", "5", "--seed", "4", "--json", str(out)]) == 0
+    assert f"play: 5 of {len(IDS)} worlds, seed 4" in capsys.readouterr().err
+    played = [w["world_id"] for w in json.loads(out.read_text())["worlds"]]
+    sample = sampling.stratified_sample(sampling.world_profiles(FIXTURES, Tier.PUBLIC_TRAIN), 5, 4)
+    assert tuple(played) == sample.world_ids
+    id_list = tmp_path / "set.txt"
+    id_list.write_text("\n".join(played) + "\n")
+    assert cli.main(["play", "--agent", "random", "--worlds", str(id_list), "--json", str(out)]) == 0
+    assert [w["world_id"] for w in json.loads(out.read_text())["worlds"]] == played
 
 
 @pytest.mark.parametrize(

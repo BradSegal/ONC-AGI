@@ -29,7 +29,7 @@ from onc_agi.services.scoring import score_world
 def release_task_services():  # type: ignore[no-untyped-def]
     yield
     for run in tuple(inspect_task._RUNS.values()):
-        run.service.shutdown()
+        run.shutdown()
     inspect_task._RUNS.clear()
 
 
@@ -166,6 +166,27 @@ def test_each_task_run_is_one_scorecard_opened_through_the_service(store_root: P
 def test_eval_tiers_refuse_to_run_without_the_servers_ledger(store_root: Path) -> None:
     with pytest.raises(ValueError, match="fresh worlds"):
         inspect_task.arena_full_access(str(store_root), tier="public_eval", n_worlds=1)
+
+
+def test_the_task_file_loads_as_inspect_eval_loads_it(store_root: Path) -> None:
+    """``inspect eval FILE@task`` executes the file as a module outside ``sys.modules``."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("arena_task_file", inspect_task.__file__)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    task = module.arena_sequential(str(store_root.resolve()), n_worlds=1)
+    assert len(task.dataset) == 1
+    for run in tuple(module._RUNS.values()):
+        run.shutdown()
+
+
+def test_a_store_path_that_finds_no_worlds_fails_fast() -> None:
+    with pytest.raises(ValueError, match="pass an absolute path"):
+        inspect_task.arena_full_access("relative/to/elsewhere")
+    with pytest.raises(ValueError, match=r"store_root= .* or url="):
+        inspect_task.arena_full_access()
 
 
 def test_failed_task_open_releases_the_archive(store_root: Path) -> None:

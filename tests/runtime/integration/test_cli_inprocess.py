@@ -9,7 +9,8 @@ import pytest
 from arena_factories import planted_world
 from onc_agi.adapters import cli
 from onc_agi.core.schema import Mode, Tier
-from onc_agi.infra.bundles import write_world
+from onc_agi.infra.bundles import FileWorldStore, write_world
+from onc_agi.services import sampling
 
 
 @pytest.fixture
@@ -75,6 +76,39 @@ def test_evaluate_limits_the_number_of_worlds(small_store: Path, tmp_path: Path)
         == 0
     )
     assert json.loads(out.read_text())["n_worlds"] == 3
+
+
+def test_evaluate_n_is_a_reported_seeded_sample_and_worlds_names_them(
+    small_store: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "card.json"
+    base = ["evaluate", "--agent", "random", "--store", str(small_store), "--json", str(out)]
+    store = FileWorldStore(small_store)
+    expected = sampling.stratified_sample(sampling.world_profiles(store, Tier.PUBLIC_TRAIN), 3, 9).world_ids
+    assert cli.main([*base, "--n", "3", "--seed", "9"]) == 0
+    assert "evaluate: 3 of 6 worlds, seed 9" in capsys.readouterr().err
+    assert tuple(w["world_id"] for w in json.loads(out.read_text())["worlds"]) == expected
+    assert cli.main([*base, "--worlds", "w-01,w-04"]) == 0
+    assert [w["world_id"] for w in json.loads(out.read_text())["worlds"]] == ["w-01", "w-04"]
+    assert cli.main([*base, "--n", "7"]) == 2
+    assert "cannot draw 7 of 6 worlds" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("worlds", "message"),
+    [
+        ("w-00,w-01,w-02,w-01", "evaluate: unknown_world: listed more than once ['w-01']"),
+        ("w-00,w-09,w-01", "evaluate: unknown_world: unknown public_train worlds ['w-09']"),
+    ],
+)
+def test_evaluate_refuses_repeated_or_unknown_named_worlds_cleanly(
+    small_store: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str], worlds: str, message: str
+) -> None:
+    trace = tmp_path / "trace.jsonl"
+    argv = ["evaluate", "--agent", "random", "--store", str(small_store), "--trace", str(trace)]
+    assert cli.main([*argv, "--worlds", worlds]) == 2
+    captured = capsys.readouterr()
+    assert captured.err.strip() == message and captured.out == "" and not trace.exists()
 
 
 def test_conformance_reports_every_check(

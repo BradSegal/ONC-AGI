@@ -213,6 +213,26 @@ def test_eval_responses_never_carry_answers_or_per_world_results(served, tier: s
         assert forbidden not in text
 
 
+def test_public_train_draws_take_an_optional_seed_and_eval_draws_refuse_one(served) -> None:  # type: ignore[no-untyped-def]
+    from onc_agi.services import sampling
+
+    http, store, _ = served
+    client = ArenaClient("http://testserver", KEY, client=http)
+    profiles = sampling.world_profiles(store, Tier.PUBLIC_TRAIN)
+    for seed in (None, 0, 11):
+        _, cards = client.open("seeded", Tier.PUBLIC_TRAIN, 3, seed=seed)
+        assert (
+            tuple(c.world_id for c in cards) == sampling.stratified_sample(profiles, 3, seed or 0).world_ids
+        )
+    with pytest.raises(ArenaError, match="seed") as err:
+        client.open("seeded", Tier.PUBLIC_EVAL, 3, seed=1)
+    assert err.value.code is ErrorCode.INVALID_PAYLOAD
+    refused = http.post(
+        "/v1/scorecards", json={"agent": "a", "tier": "public_train", "n_worlds": 2, "seed": -1}
+    )
+    assert refused.status_code == 400 and refused.json()["message"].startswith("body.seed")
+
+
 def test_the_client_plays_any_agent_and_matches_in_process_scoring(served) -> None:  # type: ignore[no-untyped-def]
     http, store, _ = served
     client = ArenaClient("http://testserver", KEY, client=http)

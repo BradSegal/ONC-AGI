@@ -12,6 +12,7 @@ import dataclasses
 import hashlib
 import itertools
 from abc import ABC, abstractmethod
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -25,6 +26,7 @@ from onc_agi.core.schema import (
     Action,
     Assay,
     EpisodeStatus,
+    ErrorCode,
     Mode,
     Recruit,
     Reset,
@@ -216,6 +218,22 @@ def run_episode(
     return EpisodeResult(card.world_id, episode.submission, episode.spent, view)
 
 
+def check_world_ids(store: WorldStore, tier: Tier, world_ids: Sequence[str]) -> tuple[str, ...]:
+    """``world_ids`` as a tuple when they are distinct worlds of ``tier``; otherwise name the offenders."""
+    ids = tuple(world_ids)
+    if not ids:
+        raise ArenaError(ErrorCode.UNKNOWN_WORLD, f"no {tier.value} worlds named")
+    known = set(store.world_ids(tier))
+    unknown = list(dict.fromkeys(w for w in ids if w not in known))
+    repeated = [w for w, k in Counter(ids).items() if k > 1]
+    if unknown or repeated:
+        problems = ([f"unknown {tier.value} worlds {unknown}"] if unknown else []) + (
+            [f"listed more than once {repeated}"] if repeated else []
+        )
+        raise ArenaError(ErrorCode.UNKNOWN_WORLD, "; ".join(problems))
+    return ids
+
+
 def evaluate(
     agent: Agent,
     store: WorldStore,
@@ -229,7 +247,7 @@ def evaluate(
     recorder: TraceSink | None = None,
 ) -> tuple[Scorecard, list[EpisodeResult]]:
     """Run ``agent`` on worlds and return its scorecard and episode results."""
-    ids = tuple(world_ids) if world_ids is not None else store.world_ids(tier)
+    ids = check_world_ids(store, tier, world_ids) if world_ids is not None else store.world_ids(tier)
     results: list[EpisodeResult] = []
     scores: list[WorldScore] = []
     regrets: list[tuple[float, float]] = []

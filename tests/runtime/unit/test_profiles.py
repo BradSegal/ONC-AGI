@@ -143,5 +143,12 @@ def test_the_inspect_mapping_exports_endpoint_and_key(path: Path, monkeypatch: p
     monkeypatch.setenv("P_KEY", "secret")
     monkeypatch.delenv("P_BASE_URL", raising=False)
     monkeypatch.delenv("P_API_KEY", raising=False)
-    assert load_profile("p", path=path).inspect_model() == "openai-api/p/org/m"
+    profile = load_profile("p", ["temperature=0.2", "extra_body.provider={sort='price'}"], path=path)
+    assert profile.inspect_model() == "openai-api/p/org/m"
     assert os.environ["P_BASE_URL"] == "http://x/v1" and os.environ["P_API_KEY"] == "secret"
+    config = profile.inspect_config()  # the same request parameters the open track sends
+    assert {k: v for k, v in config.items() if not k.startswith("extra_")} == profile.generate
+    assert config["extra_body"] == profile.extra_body and config["extra_body"]["provider"] == {
+        "sort": "price"
+    }
+    assert "extra_headers" not in config  # header values never reach the Inspect log

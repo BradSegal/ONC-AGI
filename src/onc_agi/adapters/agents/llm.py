@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -68,6 +69,8 @@ CONTINUE_PROMPT = "Please continue with the tools, and finish by calling submit.
 SANDBOX_TOOLS = ("python", "bash")
 ARENA_TOOLS = ("recruit", "assay", "submit")
 RETRY_STATUS = frozenset({408, 409, 429, 500, 502, 503, 504})
+# credential-shaped text a provider may echo back: bearer tokens and common API-key forms
+_CREDENTIAL = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}|\b(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}")
 
 
 @dataclass(frozen=True)
@@ -285,6 +288,16 @@ class ChatClient:
         self.http = http or httpx.Client(timeout=httpx.Timeout(600.0, connect=30.0))
         self.retries, self.backoff, self.sleep = retries, backoff, sleep
         self.headers = profile.headers()
+        # never echo credentials into errors, recordings or run records: the key and every header value
+        self._secrets = sorted(
+            {v for v in self.headers.values() if v} | {profile.api_key() or ""} - {""}, key=len
+        )[::-1]
+
+    def redact(self, text: str) -> str:
+        """``text`` with the profile's key, its header values and anything bearer- or key-shaped removed."""
+        for secret in self._secrets:
+            text = text.replace(secret, "[redacted]")
+        return _CREDENTIAL.sub("[redacted]", text)
 
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Completion:
         body = {**self.profile.request_body(), "messages": messages, "tools": tools}
@@ -296,18 +309,18 @@ class ChatClient:
             try:
                 response = self.http.post(url, json=body, headers=self.headers)
             except httpx.TransportError as exc:
-                last = f"{type(exc).__name__}: {exc}"
+                last = self.redact(f"{type(exc).__name__}: {exc}")
                 continue
             if response.status_code in RETRY_STATUS or response.status_code >= 500:
-                last = f"HTTP {response.status_code}: {response.text[:500]}"
+                last = f"HTTP {response.status_code}: {self.redact(response.text[:500])}"
                 continue
             if response.status_code >= 400:
                 raise RuntimeError(
-                    f"{url} refused the request: HTTP {response.status_code}: {response.text[:1000]}"
+                    f"{url} refused the request: HTTP {response.status_code}: {self.redact(response.text[:1000])}"
                 )
             data = response.json()
             if not data.get("choices"):  # some routers return 200 with an upstream error body
-                last = f"no choices in response: {json.dumps(data)[:500]}"
+                last = f"no choices in response: {self.redact(json.dumps(data)[:500])}"
                 continue
             return self._completion(data)
         raise RuntimeError(f"{url}: gave up after {self.retries + 1} attempts ({last})")
@@ -352,11 +365,6 @@ class _Pending:
 
 def _truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + f"\n... [truncated {len(text) - limit} characters]"
-
-
-def _ranking(answer: str, valid: set[str]) -> tuple[str, ...]:
-    listed = dict.fromkeys(f.strip() for f in answer.replace("\n", ",").split(",") if f.strip())
-    return tuple(f for f in listed if f in valid)
 
 
 class LLMToolAgent(Agent):
@@ -515,7 +523,8 @@ class LLMToolAgent(Agent):
                 dict.fromkeys(f.strip() for f in str(args.get("feature_ids", "")).split(",") if f.strip())
             )
             return Assay(request_id=self.request_id(), feature_ids=ids), len(ids)
-        ranking = _ranking(str(args.get("answer", "")), set(card.feature_ids()))
+        # parsed exactly as the standard harness parses its answer
+        ranking = _standard_harness()._ranking(str(args.get("answer", "")), set(card.feature_ids()))
         return Submit(request_id=self.request_id(), ranking=ranking), 0
 
     @staticmethod

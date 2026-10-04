@@ -1,6 +1,25 @@
 # Changelog
 
-## Unreleased
+## 1.0.0rc4 — 2026-10-04
+
+Runtime update over the `1.0.0rc3` world packs. The payload schemas stay interface `1.0`; every change is additive.
+
+- **Certified world lists.** Every rc3 world was re-checked against the current solvability screen. 2,465 of 2,489 worlds pass: full access 983 of 995, sequential 986 of 996, expressive full access 248 of 248, expressive sequential 248 of 250. The id lists (`<pack>-certified.txt`, `<pack>-excluded.txt`) are release assets; pass one to `--worlds`. The 24 excluded worlds have two credited parts too closely correlated to be credited separately, including the 8 whose answer keys no solver could reach.
+- **Seeded stratified sampling.** `--n` draws a sample stratified by source, family and mode, seeded by `--seed`, instead of the first sorted ids. `onc-agi subset` writes a sample's id list, and `onc-agi worlds` shows source, family and size.
+- **One run format, verified by replay.** The open (`onc-agi play`) and standard (Inspect) tracks write the same run directory: a recording, the server's trace with request and response digests, and the scorecard. `onc-agi replay --record DIR` recomputes the whole scorecard from the trace. A new route, `GET /v1/scorecards/{sid}/trace`, gives a closed scorecard's trace to its owner, so verification can be checked against the server. `onc-agi standard` runs the Inspect track in one command.
+- **Methods catalogue.** New reference agents:
+  - `adjusted`: covariate- and cohort-adjusted analysis with interaction screening under one 5% false-discovery budget;
+  - `boruta`;
+  - `stability_pfer`: stability selection with a per-family error bound;
+  - `penalised_cox`;
+  - `icp`: invariant causal prediction;
+  - `two_phase`: a two-phase acquisition policy;
+  - `knockoffs`, labelled as controlling a modified false-discovery rate only.
+  
+  Settings were fixed by a recorded pilot before any evaluation data.
+
+
+- **Documentation.** Consolidated agent and harness guidance, separated fixture checks from benchmark evidence, corrected scoring and sampling explanations, and added source-bound task illustrations. Historical pack details now live in [historical packs](#historical-rc3-packs).
 
 - **rc3 is superseded.** 8 of its 2,489 public-train worlds have answer keys no solver can reach, and its first-pass results came from one cohort source (METABRIC). The first-pass results are withdrawn from the README, the website and the release notes; the rc3 world sets stay downloadable for reference.
 - **Scoring fix.** A neutral feature listed before a truth from the same cluster no longer costs that truth its credit: neutral features are removed before deduplication. The settled alternatives (greedy credit order and the alternative unfloored rules) are removed; a credit matching that exceeds its search limit raises an error instead of falling back. Chance is matched over the top R representatives only.
@@ -68,3 +87,17 @@ First public contract preview.
 - Inspect standard-track task (preview).
 - Twenty toy fixture worlds (ten mechanisms × two modes), with answer keys set by construction.
 - Template agents and captured example payloads.
+
+## Historical rc3 packs
+
+
+The `v1.0.0rc3` downloads remain available for reproducing earlier work. They are superseded: 8 of 2,489 worlds have unreachable answers. The first-pass results were also withdrawn because the selected worlds all came from METABRIC. Do not use these packs to make current benchmark claims.
+
+| Archive suffix (after `onc-agi-public-train-`) | Worlds | Mode and contents |
+|---|---|---|
+| `full-access-1.0.0rc3.tar.gz` | 995 | Full access, core mechanisms |
+| `sequential-1.0.0rc3.tar.gz` | 996 | Sequential, core mechanisms |
+| `expressive-full-access-1.0.0rc3.tar.gz` | 248 | Full access, survival, nonlinear effects and missingness |
+| `expressive-sequential-1.0.0rc3.tar.gz` | 250 | Sequential, expressive mechanisms |
+
+Downloads are under [release v1.0.0rc3](https://github.com/BradSegal/ONC-AGI/releases/tag/v1.0.0rc3). Each archive contains `public_train/<world>/` bundles (`card.json`, `pool.parquet`, `queues.json`, `answer_key.json`) and `manifests/` describing source, mechanism, mode and difficulty. Download the release's `SHA256SUMS` alongside an archive and verify it before extracting. Point `--store` at the extracted directory containing `public_train/`.

@@ -52,6 +52,21 @@
    "default": null,
    "title": "N Worlds"
   },
+  "seed": {
+   "anyOf": [
+    {
+     "exclusiveMaximum": 9223372036854775808,
+     "minimum": 0,
+     "type": "integer"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Seed of the stratified n_worlds public-train sample (default 0; not for eval tiers).",
+   "title": "Seed"
+  },
   "tags": {
    "default": [],
    "items": {

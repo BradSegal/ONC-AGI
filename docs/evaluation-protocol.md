@@ -1,45 +1,48 @@
 # Evaluation protocol
 
-This page fixes how a result becomes a leaderboard entry, so that two numbers on the board mean the same thing.
+A score is interpretable only with its world set, software version and harness. This protocol defines reporting and comparison requirements. Server support for a tier does not announce a hosted service, and a development run is not an accepted leaderboard result.
 
-## Tracks
+## Tracks and exposure
 
-| Track | Harness | What is fixed | Use it for |
-|---|---|---|---|
-| **standard** | The Inspect task (`arena_full_access`, `arena_sequential`) | The prompt and task card, the tools (`python`, `bash`, `recruit`, `assay`, `submit`), the no-network analysis sandbox, the limits below | Comparing models with one another |
-| **open** | Anything that speaks the interface: the agents kit (`onc-agi play`), your own HTTP client | Only the interface, the scorer and the exposure rules | Comparing agents, scaffolds and methods |
-| **reference** | Built-in oracle, random and cheater agents | Everything | Anchoring the scale: the oracle defines 1, cheaters and random sit at 0 |
+| Track | Fixed | Comparison |
+|---|---|---|
+| Standard | Inspect prompt, task card, tools, sandbox and limits | Models using the same harness version |
+| Open | Interface and scoring rules | Complete agents, including prompts, tools and acquisition policies |
+| Reference | Built-in oracle, random and shortcut agents | Checks on the score's scale |
+
+Public-train worlds include answer keys and permit per-world scores, recordings and explanations. Use them for development and disclose that exposure. Public-eval and private tiers return aggregate scorecards only after closure. Do not mix tiers or modes in a ranking.
+
+For hidden-tier serving, the runtime draws fresh worlds, targets a 20% null share and spreads signal worlds across difficulty tiers. It caps public-eval scorecards at five per key per day and private scorecards at three per key in total. Issued keys are required for normal hidden-tier operation. Operators must publish the pool commitment before evaluation; the ability to attach a commitment is not evidence that publication occurred.
 
 ## Standard-track settings
 
 | Setting | Value |
 |---|---|
-| Messages per world | 60 (full access), 80 (sequential) |
-| Safety timeout per world | 1,800 s |
-| Tool call timeout | 180 s |
-| Sandbox | No network, 2 CPUs, 4 GB memory |
-| Episodes per world per scorecard | 1 (`epochs = 1`); repeat by opening another scorecard |
-| Model parameters | The provider's defaults, unless the entry states otherwise. Reasoning effort, temperature and token limits are recorded with the entry |
+| Messages per world | 60 full access; 80 sequential |
+| Safety timeout | 1,800 s per world |
+| Tool-call timeout | 180 s |
+| Sandbox | No network; 2 CPUs; 4 GB memory |
+| Episodes | One per world per scorecard (`epochs = 1`) |
+| Model parameters | Provider defaults unless declared; record reasoning effort, temperature and token limits |
 
-Every scorecard records its harness label (`inspect-standard-1.1+<digest>`), its scorer and engine labels, and the oracle version. The digests change whenever the code that determines what a model sees, or how it is scored, changes; edits to comments, docstrings or formatting leave them unchanged. Entries with different labels are never ranked together.
+Record the harness label (`inspect-standard-1.1+<digest>`), scorer, engine and oracle versions. Different code or harness labels define different comparison groups, even when headline version numbers match. Conformance checks the wire contract; it does not establish equivalence between harnesses.
 
-## How many worlds, how many runs
+## World selection, repetition and uncertainty
 
-A Discovery Score's 95% interval is a bootstrap over the worlds of one scorecard. It does not cover a model's own randomness. Development runs give the scale of both:
+A leaderboard entry requires at least **120 worlds per scorecard** and **three scorecards per agent**, with the mean and between-run spread reported. These are protocol minima, not a guarantee of precision. The server's default minimum of 40 hidden-tier worlds is an exposure control, not the leaderboard sample-size requirement.
 
-- **Worlds.** On 120 development worlds, the interval half-width was about 0.10. On 24 worlds it was about 0.30, too wide to separate most agents.
-- **Runs.** The same model on the same 24 worlds gave identical Find but different Restraint between two runs: two null worlds flipped between abstaining and claiming. With about six null worlds per 24, one flip moves Restraint by about 0.17.
+For public-train comparisons, publish the exact world IDs and store digest, use the same selection for every agent and check the cohort, mechanism and mode mix. Do not assume the first N ordered worlds are representative. Hidden-tier draws differ across scorecards; compare runs from the same committed pool and declared draw policy.
 
-A leaderboard entry therefore needs:
+The scorecard's 95% stratified bootstrap interval concerns the **signed, unfloored statistic**, not the clipped headline Discovery Score. It resamples signal and null worlds separately and does not estimate a model's run-to-run variation. Report both the per-scorecard intervals and variation across repeated runs. The leaderboard convention gives overlapping intervals tied ranks; that convention is not a formal test of equivalence.
 
-1. At least **120 worlds per scorecard** (about 24 of them null, the fixed 20% share).
-2. At least **three scorecards per agent**. The entry reports their mean and the spread between them alongside each scorecard's interval.
-3. Agents are ranked apart only when one interval lies wholly above the other. The leaderboard shows rows that cannot be told apart at the same rank, marked `=`.
+## Costs and provenance
 
-## Costs
+Report tokens, cost, parameters, command, commit, world-store digest, selected IDs or pool commitment, and all version labels. Use provider-reported cost when available; otherwise state the prices used, including input, output and cache accounting. Mark unavailable cost as unknown.
 
-Every standard and open entry reports tokens and cost. Cost comes from the provider's own accounting when it is available, otherwise from the per-token prices stated with the entry (input, output, cache reads and cache writes priced separately). An unknown cost is shown as unknown, never estimated silently. Runs can stop on a spend cap (`--budget-usd`): unplayed worlds score as empty submissions, so a stopped run is complete but penalised, never quietly shortened.
+A spend limit stops new worlds from starting; in-flight worlds finish. Unplayed worlds remain in the denominator and score as empty submissions. Never silently shorten the world set after a failure or budget stop.
 
-## Exposure
+## Integrity limits
 
-Public-train results are fully visible: per-world scores, recordings and explanations. Public-eval and private scorecards report aggregates only, draw worlds that no earlier scorecard used, and are capped per key. Serving them requires issued API keys.
+Evaluation worlds must not be used for training, tuning, seed reconstruction, adaptive answer extraction or patient re-identification. Public source cohorts make record matching a material risk. Fake names, perturbation, fresh draws and a no-network sandbox are controls; they do not by themselves certify resistance to that risk. Sequential and hidden-variable results from unrestricted open-track harnesses carry unverified integrity assumptions.
+
+The [scoring specification](scoring.md) defines chance correction and abstention. Its signed statistics are the basis for shortcut checks; clipping means a finite displayed score need not be exactly zero under chance. Report suspected integrity flaws privately to the maintainers before public disclosure.

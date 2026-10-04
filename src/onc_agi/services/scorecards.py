@@ -49,9 +49,9 @@ from onc_agi.core.schema import (
     WorldCard,
     WorldScore,
 )
-from onc_agi.services import alignment, scoring
+from onc_agi.services import alignment, sampling, scoring
 from onc_agi.services.engine import Episode, EpisodeView
-from onc_agi.services.kit import view_digest
+from onc_agi.services.kit import check_world_ids, view_digest
 
 PUBLIC_EVAL_DAILY_CAP = 5
 NULL_SHARE = 0.2
@@ -131,6 +131,7 @@ class ScorecardService:
         self._lock = threading.RLock()  # guards _open and serialises openings in this process
         self._open: dict[str, _Open] = {}
         self._stopped = False
+        self._profile_cache: tuple[tuple[str, ...], tuple[sampling.WorldProfile, ...]] | None = None
         if archive is not None:
             archive.acquire()
             try:
@@ -168,22 +169,26 @@ class ScorecardService:
         tags: tuple[str, ...] = (),
         mode: Mode | None = None,
         world_ids: tuple[str, ...] | None = None,
+        seed: int | None = None,
     ) -> tuple[str, tuple[WorldCard, ...]]:
         """Open a scorecard; ``mode`` restricts the draw to worlds of that mode.
 
-        ``world_ids`` names the worlds outright. Exactly one of ``n_worlds`` and ``world_ids`` is given.
+        ``world_ids`` names the worlds outright. Exactly one of ``n_worlds``
+        and ``world_ids`` is given. ``n_worlds`` public-train worlds are a stratified sample
+        seeded by ``seed`` (default 0; see :mod:`onc_agi.services.sampling`), so the
+        same request always plays the same representative worlds.
         """
         if (n_worlds is None) == (world_ids is None):
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "give exactly one of n_worlds and world_ids")
+        if seed is not None and (tier is not Tier.PUBLIC_TRAIN or world_ids is not None or seed < 0):
+            raise ArenaError(
+                ErrorCode.INVALID_PAYLOAD,
+                "seed is a non-negative integer for drawn public-train worlds only (eval tiers draw fresh)",
+            )
         if world_ids is not None:
             if tier is not Tier.PUBLIC_TRAIN:
                 raise ArenaError(ErrorCode.INVALID_PAYLOAD, "world selection is public-train only")
-            known = set(self.store.world_ids(tier))
-            missing = [w for w in world_ids if w not in known]
-            if missing or not world_ids or len(set(world_ids)) != len(world_ids):
-                raise ArenaError(
-                    ErrorCode.UNKNOWN_WORLD, f"not distinct public-train worlds: {missing or world_ids}"
-                )
+            check_world_ids(self.store, tier, world_ids)
         if self.allowed_keys is not None and api_key not in self.allowed_keys:
             raise ArenaError(
                 ErrorCode.INVALID_PAYLOAD, "unknown API key; keys are issued by the arena operators"
@@ -196,6 +201,15 @@ class ScorecardService:
             raise ArenaError(
                 ErrorCode.INVALID_PAYLOAD, f"eval scorecards require at least {self.min_eval_worlds} worlds"
             )
+        train_draw = None
+        if tier is Tier.PUBLIC_TRAIN and world_ids is None and n_worlds is not None:
+            # public train marks nothing used, so its draw needs no lock; its profiles are cached
+            profiles = [p for p in self._train_profiles() if mode is None or p.mode == mode.value]
+            if len(profiles) < n_worlds:
+                raise ArenaError(
+                    ErrorCode.CAP_EXCEEDED, f"only {len(profiles)} unused worlds remain in {tier.value}"
+                )
+            train_draw = sampling.stratified_sample(profiles, n_worlds, seed or 0).world_ids
         self._sweep()
         with self._lock, self._ledger_lock():
             self._ensure_active()
@@ -210,22 +224,25 @@ class ScorecardService:
                 raise ArenaError(
                     ErrorCode.CAP_EXCEEDED, f"at most {PRIVATE_TOTAL_CAP} private scorecards in total"
                 )
-            available = world_ids if world_ids is not None else self.store.world_ids(tier)
-            n_worlds = len(available) if n_worlds is None else n_worlds
-            if mode is not None:
-                available = tuple(w for w in available if self.store.card(w).mode is mode)
-            if tier is not Tier.PUBLIC_TRAIN:
-                used = self.ledger.used(tier)
-                available = tuple(w for w in available if w not in used)
-            if len(available) < n_worlds:
-                raise ArenaError(
-                    ErrorCode.CAP_EXCEEDED, f"only {len(available)} unused worlds remain in {tier.value}"
-                )
-            if tier is Tier.PUBLIC_TRAIN:
-                chosen = available[:n_worlds]
+            if train_draw is not None:
+                chosen = train_draw
             else:
-                chosen = self._stratified_draw(available, n_worlds)
-                self.ledger.mark_used(tier, list(chosen))
+                available = world_ids if world_ids is not None else self.store.world_ids(tier)
+                n_worlds = len(available) if n_worlds is None else n_worlds
+                if mode is not None:
+                    available = tuple(w for w in available if self.store.card(w).mode is mode)
+                if tier is not Tier.PUBLIC_TRAIN:
+                    used = self.ledger.used(tier)
+                    available = tuple(w for w in available if w not in used)
+                if len(available) < n_worlds:
+                    raise ArenaError(
+                        ErrorCode.CAP_EXCEEDED, f"only {len(available)} unused worlds remain in {tier.value}"
+                    )
+                if world_ids is not None:
+                    chosen = available
+                else:
+                    chosen = self._stratified_draw(available, n_worlds)
+                    self.ledger.mark_used(tier, list(chosen))
             self.ledger.record_opening(key_digest(api_key), tier, today)
             scorecard_id = f"sc-{secrets.token_hex(8)}"
             sc = _Open(
@@ -253,6 +270,15 @@ class ScorecardService:
         if tier is not Tier.PUBLIC_TRAIN:
             raise ArenaError(ErrorCode.INVALID_PAYLOAD, "only public-train worlds are listed")
         return tuple(self.store.card(w) for w in self.store.world_ids(tier))
+
+    def _train_profiles(self) -> tuple[sampling.WorldProfile, ...]:
+        """Public-train profiles, read once per set of world ids (bundles are immutable once written)."""
+        ids = self.store.world_ids(Tier.PUBLIC_TRAIN)
+        cached = self._profile_cache
+        if cached is None or cached[0] != ids:
+            cached = (ids, sampling.world_profiles(self.store, Tier.PUBLIC_TRAIN, ids))
+            self._profile_cache = cached  # one assignment: concurrent opens at worst both compute it
+        return cached[1]
 
     def _ledger_lock(self) -> AbstractContextManager[None]:
         lock = getattr(self.ledger, "lock", None)  # third-party ledgers may lack it: single-process only
@@ -445,6 +471,20 @@ class ScorecardService:
         if sc.closed is None:
             raise ArenaError(ErrorCode.ACTION_NOT_AVAILABLE, "scorecard is still open; close it first")
         return sc.closed
+
+    def trace(self, scorecard_id: str, *, api_key: str | None = None) -> tuple[TraceEvent, ...]:
+        """The server trace of a closed scorecard: every applied action with its request and
+        response digests, in apply order, so its owner can verify the run by replay.
+
+        It holds only what the owner sent and received, so every tier serves it once closed. A
+        service without an archive keeps no trace and refuses with ``action_not_available``.
+        """
+        sc = self._get(scorecard_id, api_key)
+        if sc.closed is None:
+            raise ArenaError(ErrorCode.ACTION_NOT_AVAILABLE, "scorecard is still open; close it first")
+        if self.archive is None:
+            raise ArenaError(ErrorCode.ACTION_NOT_AVAILABLE, "this arena keeps no traces (it has no archive)")
+        return self.archive.events(scorecard_id)
 
     # ------------------------------------------------------------------ expiry and restore
 

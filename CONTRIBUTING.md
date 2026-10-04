@@ -1,27 +1,26 @@
 # Contributing
 
-## Interface feedback
+For a bug, open an issue with the command, commit, world ID and full error. Prefer a reproduction on a bundled fixture. For interface feedback, include the request or response that caused difficulty and the behaviour you need. Do not include credentials or private world data; see [SECURITY.md](SECURITY.md) for security reports.
 
-This release exists to collect feedback before the interface freezes at `1.0.0`.
-- Open an issue with the **Interface feedback** template.
-- Say what you tried, which payload or behaviour got in the way, and what you would change.
-- Only additive changes (new optional fields) are made before the freeze.
+## Where changes belong
 
-## Bugs
+The runtime (`src/onc_agi/`, excluding fixtures), `tests/runtime/`, `site/`, and four guides—`interface.md`, `scoring.md`, `agents-kit.md` and `evaluation-protocol.md`—are exported from the creation repository. `EXPORT.json` records their hashes. Propose changes here with an issue or pull request; maintainers apply them upstream before exporting.
 
-Open an issue with the **Bug report** template. Include the command, the world id and the full error. Most bugs reproduce on a toy world.
+The other repository guides, toy builder, contract generator, examples and `tests/preview/` are maintained here. Keep examples runnable from a checkout and distinguish fixture behaviour from benchmark results.
 
-## Code
-
-The runtime in `src/onc_agi/` and `tests/runtime/` is exported from the upstream source, and `EXPORT.json` records each file's hash. A change there is applied upstream and arrives in the next export, so open an issue or a pull request describing it rather than relying on a direct edit here.
-
-The toy builder, the contract generator, docs, examples and `tests/preview/` are maintained in this repository.
+## Check a change
 
 ```bash
-uv sync
-uv run black --check . && uv run ruff check . && uv run mypy src
-uv run pytest
-uv run python tools/build_toy.py && uv run python tools/gen_contract.py && git diff --exit-code
+uv sync --locked --all-extras --group dev
+uv run black --check .
+uv run ruff check .
+uv run mypy src
+uv run pytest --cov --cov-fail-under=80
+uv run python tools/build_toy.py
+uv run python tools/gen_contract.py
+git diff --exit-code
 ```
 
-Do not commit keys, tokens or absolute paths. `tools/scan_release.py` runs in CI.
+Run generation checks on a clean working tree; the final command reports any regenerated differences. Never commit keys, tokens or machine-specific absolute paths. CI also runs `tools/scan_release.py`.
+
+Before a release, run `uv run python tools/check_package.py` to build and install both distributions in fresh environments. The release scan requires Gitleaks; a missing scanner is an error.

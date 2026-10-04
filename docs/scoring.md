@@ -4,7 +4,7 @@ This document defines how a submission is scored. It is executable. Every block 
 
 ## 1. One world, one list
 
-The agent submits an ordered list of feature ids, most likely driver first, or an empty list. The world's answer key, which is private, holds:
+The agent submits an ordered list of feature ids, most likely driver first, or an empty list. The world's answer key is separate from the agent observation. Public-train keys are distributed for development; hidden-tier keys remain with the evaluator. Each key holds:
 
 - the **recoverable groups**. Each has one or more *parts*, and each part has a true feature and an **oracle-equivalence set**: the features the Monte Carlo oracle certified as detectable in its place.
 - the **neutral groups**: planted but not recoverable from the data, such as underdetermined or decoy terms.
@@ -20,17 +20,17 @@ Scoring takes six steps.
 2. **Leak reject.** If any listed feature is in the reject set, the world scores Find 0 wherever the leak appears in the list, and the world counts toward Leak rate.
 3. **Neutral removal.** Members of neutral groups' equivalence sets are dropped. They neither earn credit, use depth nor represent a cluster.
 4. **Representatives.** The rest of the list is reduced to its first-listed feature per cluster. Near-duplicates therefore neither earn extra credit nor use extra depth.
-5. **Credit at depth R.** The top R representatives earn credit one to one. They are matched to parts so that the most parts are credited, and among equally good matchings the most are credited exactly. A representative can credit a part when it is in that part's equivalence set. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Credit therefore depends on which representatives reach the top R, not on their order inside it, nor on the private order of groups in the key. Each group's credit rule then applies:
+5. **Credit at depth R.** The top R representatives earn credit one to one. They are matched to parts so that the most parts are credited, and among equally good matchings the most are credited exactly (maximum matching; D12). A representative can credit a part when it is in that part's equivalence set. The credit is *exact* if it is the true feature itself, or if the part is not exactly recoverable. Credit therefore depends on which representatives reach the top R, not on their order inside it, nor on the private order of groups in the key. Each group's credit rule then applies:
    - `single`: one part, credited by any member of its equivalence set;
    - `joint` (interactions, modifiers, mixtures): all parts, or nothing;
    - `weighted_coverage` (modules): the covered share of absolute weights, times the number of parts.
 
    Raw recovery is the credited slots divided by R.
 6. **Chance normalisation.** The *matched* chance c is the expected raw recovery of the same list with each feature replaced by a random feature from its own stratum, pushed through steps 3–5. Then:
-   - `find_signed = (raw − c) / (1 − c)`, which is zero in expectation for any outcome-blind list and drives statistics and gates;
+   - `find_signed = (raw − c) / (1 − c)`, which drives statistics and gates; its chance baseline assumes the list follows the matched randomisation model;
    - `find = clip(find_signed, 0, 1)`, which is displayed.
 
-   Strict uses exact credit in the same way.
+   Strict uses exact credit in the same way. If matched chance reaches 1, the normalised value is 0.
 
 ### The worked world
 
@@ -92,7 +92,7 @@ In the examples below the matched chance is given as `(c_raw, c_exact) = (0.1, 0
  "expect": {"raw_recovery": 0.5, "find": 0.4444444444444445}}
 ```
 
-**Any listed leak zeroes the world**, even at the end of an otherwise perfect list. The signed value is what the empty list would earn.
+**Any listed leak makes Find and Strict zero**, even at the end of an otherwise perfect list. Signed Find uses zero recovery with the submitted list's matched chance.
 
 ```json scoring-example world=spec-w
 {"ranking": ["a", "b", "L"], "chance": [0.1, 0.05],
@@ -106,7 +106,7 @@ In the examples below the matched chance is given as `(c_raw, c_exact) = (0.1, 0
  "expect": {"abstained": true, "raw_recovery": 0.0, "find": 0.0, "find_signed": -0.11111111111111112}}
 ```
 
-**Sequential efficiency.** `efficiency = min(1, reference cost / spend)`. A perfect list bought at four times the oracle reference cost carries efficiency 0.25 into Find.
+**Sequential efficiency.** `efficiency = min(1, reference cost / spend)`; zero spend has efficiency 1. A perfect list bought at four times the oracle reference cost carries efficiency 0.25 into Find.
 
 ```json scoring-example world=spec-w
 {"ranking": ["a", "b"], "chance": [0.1, 0.05], "sequential": true, "spent": 400.0,
@@ -248,13 +248,13 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["a", "n"], "chance": [0.0, 0.0], "expect": {"raw_recovery": 1.0, "find_exact": 1.0, "abstained": false}}
 ```
 
-**A leak behind a cluster-mate still zeroes the world.** The leak check reads the whole list before deduplication.
+**A leak behind a cluster-mate still makes Find and Strict zero.** The leak check reads the whole list before deduplication.
 
 ```json scoring-example world=spec-w
 {"ranking": ["a", "a2", "b", "L"], "chance": [0.1, 0.05], "expect": {"leaked": true, "find": 0.0}}
 ```
 
-**Overlapping equivalence sets are resolved by maximum matching**. `v` is equivalent to the true feature `u` and is also a true feature itself. Maximum matching assigns `v` to its own part and `u` to `u`'s, so both orders earn full and exact credit.
+**Overlapping equivalence sets are resolved by maximum matching** (D12). `v` is equivalent to the true feature `u` and is also a true feature itself. Maximum matching assigns `v` to its own part and `u` to `u`'s, so both orders earn full and exact credit.
 
 ```json scoring-world name=spec-overlap
 {
@@ -304,13 +304,13 @@ These are the scorer's literal behaviour in situations an agent might try to exp
 {"ranking": ["a", "zz"], "code": "unknown_feature"}
 ```
 
-**Sequential restraint is asymmetric by design.** Efficiency scales the credit for restraint on null worlds, but abstaining on a signal world counts in full. An agent that buys the whole pool and then always abstains therefore has negative Restraint (the third aggregate example in section 3). Its unfloored score is never positive.
+**Sequential restraint is asymmetric by design.** Efficiency scales the credit for restraint on null worlds, but abstaining on a signal world counts in full. An agent that buys the whole pool and then always abstains can therefore have negative Restraint (the third aggregate example in section 3). Its unfloored score is never positive.
 
 ## 2. Matched chance
 
-Chance is not a property of the world alone. It belongs to *the list's own feature classes*: each listed feature is replaced by a random member of its stratum, without replacement, 200 times, and steps 3–5 are applied to each draw. A list built from data types, hubs, near-duplicate counts or synthetic-column tells therefore gains nothing over chance.
+Chance is not a property of the world alone. It belongs to *the list's own feature classes*: each listed feature is replaced by a random member of its stratum, without replacement, 200 times, and steps 3–5 are applied to each draw. This adjusts for the feature-class composition of a list. A claim that a particular shortcut is neutralised still requires a signed-score check on the relevant world distribution.
 
-Suppose a world has four features in one stratum and a single true feature `a`. A one-feature list then has matched chance 1/4, whichever feature it names. The stated value is approximate (Monte Carlo, seeded by world and list), so it is checked to within ±0.07.
+Suppose a world has four features in one stratum and a single true feature `a`. A one-feature list then has matched chance 1/4, whichever feature it names. The stated value is approximate (Monte Carlo with fixed per-world stratum permutations), so it is checked to within ±0.07.
 
 ```json scoring-world name=spec-chance
 {
@@ -353,12 +353,12 @@ An empty list has chance 0 by definition:
 Over a set of worlds:
 
 - **Find** = mean over signal worlds of `find × efficiency`;
-- **Restraint** = (mean over null worlds of `restrained × efficiency`) − (abstention rate on signal worlds). This is Youden's J: always-empty and always-claiming agents both score 0;
+- **Restraint** = (mean over null worlds of `restrained × efficiency`) − (abstention rate on signal worlds). In full-access mode this is Youden's J. Sequential efficiency discounts null-world restraint but not signal-world abstention;
 - **Discovery Score** = `Find × max(0, Restraint)`, which is the headline;
 - **unfloored** = `find_signed × Restraint`, made negative whenever either factor is negative, so two below-chance components never multiply into a positive score. It is the estimand for the scorecard interval. The release gates test signed Find and Restraint separately;
 - **Strict** = the same with exact credit.
 
-Undefined values are `null`: Restraint without null worlds, and Find without signal worlds. The interval is a 2.5–97.5% percentile bootstrap of the unfloored score, resampling signal and null worlds separately. Per-tier rows put null worlds in the tier they inherited from their source world.
+Undefined values are `null`: Restraint without null worlds, and Find without signal worlds. The interval is a 2.5–97.5% percentile bootstrap of the unfloored score, not of the clipped headline, resampling signal and null worlds separately. Per-tier rows put null worlds in the tier they inherited from their source world.
 
 In this example, three signal worlds have Find 1, 0.5 and an abstention, and three null worlds have two restraints:
 
@@ -378,7 +378,7 @@ In this example, three signal worlds have Find 1, 0.5 and an abstention, and thr
 
 Here Find = (1 + 0.5 + 0) / 3 = 0.5, Restraint = 2/3 − 1/3 = 1/3, and the unfloored value is `find_signed × Restraint = ((1 + 0.5 − 0.1) / 3) × (1/3) ≈ 0.156`.
 
-An agent that always submits an empty list scores Restraint 1 − 1 = 0, and an agent that never submits one scores 0 − 0 = 0. Both have Discovery Score 0:
+With unit efficiency, an agent that always abstains has Restraint 1 − 1 = 0; an agent that never abstains has Restraint 0 − 0 = 0. Both have Discovery Score 0:
 
 ```json scoring-aggregate
 {"worlds": [

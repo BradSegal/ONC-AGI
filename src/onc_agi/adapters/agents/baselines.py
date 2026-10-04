@@ -47,7 +47,8 @@ def prepared(
     return [data.feature_ids[j] for j in keep], x
 
 
-def _usable(data: AnalysisInput, x: NDArray[np.float64]) -> bool:
+def usable(data: AnalysisInput, x: NDArray[np.float64]) -> bool:
+    """Enough rows, at least one column and at least three of each outcome class (events on survival worlds)."""
     return bool(
         x.shape[0] >= 10 and x.shape[1] > 0 and len(np.unique(data.y)) == 2 and min(np.bincount(data.y)) >= 3
     )
@@ -69,18 +70,23 @@ def univariate_bh(data: AnalysisInput) -> list[str]:
     Empty when nothing passes.
     """
     ids, x = prepared(data)
-    if not _usable(data, x):
+    if not usable(data, x):
         return []
     y = data.y.astype(bool)
     if data.time is not None:
         p = _cox_score_p(x, data.time, data.y)
     else:
         p = np.array([stats.mannwhitneyu(x[y, j], x[~y, j]).pvalue for j in range(x.shape[1])])
+    return [ids[j] for j in bh_select(p, FDR)]
+
+
+def bh_select(p: NDArray[np.float64], level: float) -> list[int]:
+    """Indices rejected by the Benjamini-Hochberg step-up procedure at ``level``, smallest p first."""
     order = np.argsort(p)
     m = len(p)
-    passed = p[order] <= FDR * np.arange(1, m + 1) / m
+    passed = p[order] <= level * np.arange(1, m + 1) / m
     k = int(np.max(np.flatnonzero(passed)) + 1) if passed.any() else 0
-    return [ids[j] for j in order[:k]]
+    return [int(j) for j in order[:k]]
 
 
 FORWARD_ALPHA = 0.05
@@ -97,7 +103,7 @@ def forward_score(
     Bonferroni level; selection order is the ranking. Empty when nothing enters.
     """
     ids, x = prepared(data)
-    if not _usable(data, x):
+    if not usable(data, x):
         return []
     level = float(stats.norm.isf(alpha / (2 * x.shape[1])))
     chosen: list[int] = []
@@ -114,7 +120,7 @@ def forward_score(
 
 def _penalised(data: AnalysisInput, l1_ratio: float) -> list[str]:
     ids, x = prepared(data)
-    if not _usable(data, x):
+    if not usable(data, x):
         return []
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ConvergenceWarning)
@@ -145,7 +151,7 @@ def elastic_net(data: AnalysisInput) -> list[str]:
 def stability_selection(data: AnalysisInput, *, draws: int = 50, cutoff: float = 0.6) -> list[str]:
     """Half-sample L1 selection frequency (Meinshausen-Buhlmann); features selected in >= 60%."""
     ids, x = prepared(data)
-    if not _usable(data, x):
+    if not usable(data, x):
         return []
     rng = np.random.default_rng(stable_seed("stability", data.card.world_id))
     counts = np.zeros(x.shape[1])
@@ -166,7 +172,7 @@ def stability_selection(data: AnalysisInput, *, draws: int = 50, cutoff: float =
 def random_forest(data: AnalysisInput) -> list[str]:
     """Impurity importance above the largest importance obtained with a permuted outcome."""
     ids, x = prepared(data)
-    if not _usable(data, x):
+    if not usable(data, x):
         return []
     seed = stable_seed("rf", data.card.world_id)
     forest = RandomForestClassifier(n_estimators=200, random_state=seed, n_jobs=1).fit(x, data.y)
@@ -179,25 +185,57 @@ def random_forest(data: AnalysisInput) -> list[str]:
     return [ids[int(j)] for j in np.argsort(-imp) if imp[j] > cut]
 
 
-def knockoffs(data: AnalysisInput, *, fdr: float = 0.1) -> list[str]:
-    """Model-X Gaussian knockoffs with lasso statistics (knockpy), knockoff (offset 0) threshold.
+# Frozen by a recorded pilot before any evaluation data.
+KNOCKOFF_FDR = 0.2
+KNOCKOFF_OFFSET = 0
 
-    The knockoff+ threshold (offset 1) cannot select fewer than about 1/q features,
-    so with the sparse truths of most worlds it never selects anything; the offset-0
-    threshold controls a modified FDR and can make small selections.
-    """
+
+def knockoff_statistics(data: AnalysisInput) -> tuple[list[str], NDArray[np.float64]] | None:
+    """Feature ids and lasso-coefficient-difference statistics W of model-X Gaussian knockoffs."""
     ids, x = prepared(data)
-    if not _usable(data, x) or x.shape[1] < 2:
-        return []
-    from knockpy import knockoff_stats  # optional dependency
-    from knockpy.knockoff_filter import KnockoffFilter
+    if not usable(data, x) or x.shape[1] < 2:
+        return None
+    from knockpy.knockoff_filter import KnockoffFilter  # optional dependency
 
     np.random.seed(stable_seed("knockoffs", data.card.world_id) % (2**32))
     kfilter = KnockoffFilter(ksampler="gaussian", fstat="lasso")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        kfilter.forward(X=x, y=data.y.astype(float), fdr=fdr)
-    stat = np.asarray(kfilter.W, dtype=float)
-    threshold = float(knockoff_stats.data_dependent_threshhold(W=stat, fdr=fdr, offset=0))
-    order = [int(j) for j in np.argsort(-stat) if stat[j] >= threshold and np.isfinite(threshold)]
-    return [ids[j] for j in order]
+        kfilter.forward(X=x, y=data.y.astype(float), fdr=KNOCKOFF_FDR)
+    return ids, np.asarray(kfilter.W, dtype=float)
+
+
+def knockoff_select(ids: list[str], stat: NDArray[np.float64], *, fdr: float, offset: int) -> list[str]:
+    """Features whose W reaches the data-dependent knockoff threshold, largest W first."""
+    from knockpy import knockoff_stats  # optional dependency
+
+    threshold = float(knockoff_stats.data_dependent_threshhold(W=stat, fdr=fdr, offset=offset))
+    if not np.isfinite(threshold):
+        return []
+    return [ids[int(j)] for j in np.argsort(-stat) if stat[j] >= threshold]
+
+
+def knockoffs(data: AnalysisInput, *, fdr: float = KNOCKOFF_FDR, offset: int = KNOCKOFF_OFFSET) -> list[str]:
+    """Model-X Gaussian knockoffs with lasso statistics (knockpy) and the data-dependent threshold.
+
+    ``offset = 1`` is the knockoff+ threshold, which controls the false discovery rate exactly
+    at ``fdr``; ``offset = 0`` controls only the modified FDR ``E[V / (R + 1/q)]``. Knockoff+
+    cannot select fewer than about ``1/q`` features unless no statistic is negative, so with
+    the sparse truths of these worlds it almost never selects anything. The frozen setting,
+    offset 0 at q = 0.2, was chosen by a pre-declared rule in a pilot on public-train worlds
+    only.
+
+    This is a modified-FDR rung, not an error-controlled selector: it controls only
+    ``E[V / (R + 1/q)]`` and claims on roughly 27-42% of no-signal worlds. Its model-X
+    guarantee also assumes the Gaussian knockoff sampler matches the joint law of the
+    columns, which binary clinical indicators, mutation flags and sparse or heavy-tailed
+    columns violate, so even that modified-FDR statement is not valid here. Survival worlds
+    are analysed through the event indicator.
+
+    References: Barber & Candes (2015) Ann Stat 43:2055; Candes, Fan, Janson & Lv (2018)
+    J R Stat Soc B 80:551.
+    """
+    computed = knockoff_statistics(data)
+    if computed is None:
+        return []
+    return knockoff_select(*computed, fdr=fdr, offset=offset)

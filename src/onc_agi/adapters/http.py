@@ -8,6 +8,7 @@ Endpoints (every scorecard endpoint needs the ``X-Arena-Key`` header)::
     GET  /v1/scorecards/{sid}/worlds/{wid}                current state (resume)
     POST /v1/scorecards/{sid}/close                       aggregate scorecard
     GET  /v1/scorecards/{sid}                             the closed scorecard on record
+    GET  /v1/scorecards/{sid}/trace                       its server trace (replay verification)
 
 This adapter is the trust boundary: the key identifies the caller for caps and
 owns the scorecard it opened. Any other key gets the same error as an unknown id.
@@ -16,8 +17,11 @@ Answer keys never leave the server; eval scorecards expose aggregates only.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import socket
+import threading
+import time
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
@@ -35,6 +39,7 @@ from onc_agi.core.schema import (
     Observation,
     Scorecard,
     Tier,
+    TraceEvent,
     WorldCard,
 )
 from onc_agi.services.scorecards import ScorecardService
@@ -64,6 +69,12 @@ class OpenRequest(BaseModel):
     )
     mode: Mode | None = Field(default=None, description="Restrict the worlds to one mode.")
     tags: tuple[str, ...] = ()
+    seed: int | None = Field(
+        default=None,
+        ge=0,
+        lt=2**63,
+        description="Seed of the stratified n_worlds public-train sample (default 0; not for eval tiers).",
+    )
 
 
 class WorldList(BaseModel):
@@ -76,6 +87,14 @@ class OpenResponse(BaseModel):
     interface_version: str = INTERFACE_VERSION
     scorecard_id: str
     cards: tuple[WorldCard, ...]
+
+
+class ScorecardTrace(BaseModel):
+    """The server trace of a closed scorecard: one event per applied action, in apply order."""
+
+    interface_version: str = INTERFACE_VERSION
+    scorecard_id: str
+    events: tuple[TraceEvent, ...]
 
 
 def create_app(service: ScorecardService) -> FastAPI:
@@ -120,6 +139,7 @@ def create_app(service: ScorecardService) -> FastAPI:
             tags=body.tags,
             mode=body.mode,
             world_ids=body.world_ids,
+            seed=body.seed,
         )
         return OpenResponse(scorecard_id=sid, cards=cards)
 
@@ -145,4 +165,34 @@ def create_app(service: ScorecardService) -> FastAPI:
     def scorecard(sid: str, x_arena_key: str = Header(min_length=8)) -> Scorecard:
         return service.scorecard(sid, api_key=x_arena_key)
 
+    @app.get("/v1/scorecards/{sid}/trace")
+    def trace(sid: str, x_arena_key: str = Header(min_length=8)) -> ScorecardTrace:
+        return ScorecardTrace(scorecard_id=sid, events=service.trace(sid, api_key=x_arena_key))
+
     return app
+
+
+@contextmanager
+def serve_in_thread(service: ScorecardService, host: str = "127.0.0.1") -> Iterator[str]:
+    """Serve ``service`` over real HTTP on a free local port for the duration; yields the base URL.
+
+    For local runs that should exercise the wire contract (and for tests); the service is shut
+    down when the server stops.
+    """
+    import uvicorn
+
+    with socket.socket() as probe:
+        probe.bind((host, 0))
+        port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(create_app(service), host=host, port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    while not server.started:
+        if not thread.is_alive():
+            raise RuntimeError(f"the arena server did not start on {host}:{port}")
+        time.sleep(0.05)
+    try:
+        yield f"http://{host}:{port}"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)

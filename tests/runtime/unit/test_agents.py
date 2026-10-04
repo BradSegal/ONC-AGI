@@ -15,6 +15,8 @@ from onc_agi.adapters.agents import (
     CHANCE_LEVEL,
     CHEATERS,
     OracleAgent,
+    TwoPhaseAgent,
+    baselines,
     cheaters,
     make_agent,
 )
@@ -37,7 +39,7 @@ def data_for(signal: bool = True, seed: int = 1, *, permute_outcome: bool = Fals
 
 
 def test_registry_lists_every_agent_and_rejects_unknown_names() -> None:
-    assert {"oracle", "random", *BASELINES, *CHEATERS} == set(AGENT_NAMES)
+    assert {"oracle", "random", *BASELINES, TwoPhaseAgent.name, *CHEATERS} == set(AGENT_NAMES)
     with pytest.raises(KeyError, match="unknown agent"):
         make_agent("nobody")
     with pytest.raises(ValueError, match="answer keys"):
@@ -155,6 +157,12 @@ def test_selection_baselines_find_a_strong_driver_and_abstain_on_null_worlds(nam
     found = BASELINES[name](data_for(signal=True, seed=11))
     assert fid(0) in found[:2]
     assert BASELINES[name](data_for(signal=True, seed=11)) == found  # seeded per world
+
+
+def test_knockoff_plus_cannot_select_a_single_driver_at_q_one_tenth() -> None:
+    """Why the pilot did not keep knockoff+: it needs about 1/q selections."""
+    pytest.importorskip("knockpy")
+    assert baselines.knockoffs(data_for(signal=True, seed=11), fdr=0.1, offset=1) == []
 
 
 @pytest.mark.parametrize("name", sorted(BASELINES))

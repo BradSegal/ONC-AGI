@@ -302,6 +302,20 @@
       ],
       "title": "N Worlds"
      },
+     "seed": {
+      "anyOf": [
+       {
+        "exclusiveMaximum": 9.223372037e+18,
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Seed of the stratified n_worlds public-train sample (default 0; not for eval tiers).",
+      "title": "Seed"
+     },
      "tags": {
       "default": [],
       "items": {
@@ -780,6 +794,33 @@
     "title": "Scorecard",
     "type": "object"
    },
+   "ScorecardTrace": {
+    "description": "The server trace of a closed scorecard: one event per applied action, in apply order.",
+    "properties": {
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/TraceEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "interface_version": {
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "scorecard_id": {
+      "title": "Scorecard Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "scorecard_id",
+     "events"
+    ],
+    "title": "ScorecardTrace",
+    "type": "object"
+   },
    "Submit": {
     "additionalProperties": false,
     "properties": {
@@ -892,6 +933,119 @@
     ],
     "title": "Timing",
     "type": "string"
+   },
+   "TraceEvent": {
+    "additionalProperties": false,
+    "properties": {
+     "action_json": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Exact action payload, so the episode can be replayed.",
+      "title": "Action Json"
+     },
+     "action_kind": {
+      "enum": [
+       "reset",
+       "recruit",
+       "assay",
+       "submit"
+      ],
+      "title": "Action Kind",
+      "type": "string"
+     },
+     "cost_usd": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Usd"
+     },
+     "interface_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Interface Version",
+      "type": "string"
+     },
+     "request_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+     },
+     "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Request Sha256",
+      "type": "string"
+     },
+     "response_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Response Sha256",
+      "type": "string"
+     },
+     "scorecard_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Scorecard (session scope) the event belongs to.",
+      "title": "Scorecard Id"
+     },
+     "spent": {
+      "minimum": 0.0,
+      "title": "Spent",
+      "type": "number"
+     },
+     "step": {
+      "minimum": 0.0,
+      "title": "Step",
+      "type": "integer"
+     },
+     "tokens": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tokens"
+     },
+     "world_id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9_.\\-]*$",
+      "title": "World Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "world_id",
+     "step",
+     "action_kind",
+     "request_id",
+     "request_sha256",
+     "response_sha256",
+     "spent"
+    ],
+    "title": "TraceEvent",
+    "type": "object"
    },
    "ValidationError": {
     "properties": {
@@ -1367,6 +1521,55 @@
      }
     },
     "summary": "Close"
+   }
+  },
+  "/v1/scorecards/{sid}/trace": {
+   "get": {
+    "operationId": "trace_v1_scorecards__sid__trace_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-arena-key",
+      "required": true,
+      "schema": {
+       "minLength": 8,
+       "title": "X-Arena-Key",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScorecardTrace"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Trace"
    }
   },
   "/v1/scorecards/{sid}/worlds/{wid}": {

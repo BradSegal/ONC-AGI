@@ -10,13 +10,21 @@ tools and the same limits:
   sandbox;
 * a safety timeout per world; tokens and cost are reported, not capped.
 
-Each task run is one arena scorecard, opened through :class:`ScorecardService`
-exactly as the HTTP interface opens one: the same fresh never-reused draws and
-caps on eval tiers, the same server-side traces, and the same close.
-Eval tiers therefore need the ledger the server uses (``ledger=``), so a world
-drawn here is never drawn again there. Per-world results are attached to the
-log only on public train. :func:`close_scorecard` closes the run's scorecard
-after the eval; :func:`log_to_scorecard` remains for logs made without one.
+Each task run is one arena scorecard, played through the same arena surface as the open
+track (``onc-agi play``): in-process over a :class:`ScorecardService` on ``store_root``, or over
+HTTP against an arena server (``url=``, with the key in the environment variable ``key_env``,
+default ``ARENA_KEY``, so it never enters the log). Either way the draw, the caps on eval tiers
+, the server trace and the close are the server's own. In-process eval tiers need the
+ledger the server uses (``ledger=``), so a world drawn here is never drawn again there. On public
+train, ``n_worlds=`` plays a stratified sample seeded by ``seed=`` (default 0) and ``world_ids=``
+plays named worlds: comma-separated ids, or a published id-list file.
+
+Per-world results are attached to the log only for in-process public-train runs; otherwise
+they exist only in the closed scorecard. :func:`close_scorecard` closes the run's scorecard
+after the eval and, with ``record=``, writes the run directory every track writes: the
+recording (the Inspect transcript plus the actions the arena applied), the server trace and
+the scorecard. :func:`run_standard` does all of it in one call (``onc-agi standard``).
+:func:`log_to_scorecard` remains for logs made without a scorecard.
 Any OpenAI-compatible endpoint works through Inspect's ``openai-api/<name>/<model>``
 provider (``<NAME>_BASE_URL`` and ``<NAME>_API_KEY`` in the environment).
 """
@@ -24,9 +32,11 @@ provider (``<NAME>_BASE_URL`` and ``<NAME>_API_KEY`` in the environment).
 from __future__ import annotations
 
 import io
+import json
+import os
 import tempfile
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -39,12 +49,19 @@ from inspect_ai.solver import Generate, Solver, TaskState, basic_agent, solver
 from inspect_ai.tool import Tool, ToolError, bash, python, tool
 from inspect_ai.util import sandbox, store
 
+from onc_agi.adapters.client import ArenaClient, view_from_observation
+from onc_agi.adapters.inspect_log import transcript
+from onc_agi.adapters.profiles import Price
+from onc_agi.adapters.swarm import LocalArena, server_trace
 from onc_agi.core.digest import behaviour_label
 from onc_agi.core.errors import ArenaError
+from onc_agi.core.ports import RecordingEvent, RecordingHeader
 from onc_agi.core.schema import (
     Action,
     Assay,
+    EpisodeStatus,
     Mode,
+    Observation,
     Recruit,
     Reset,
     Scorecard,
@@ -54,26 +71,64 @@ from onc_agi.core.schema import (
     WorldScore,
 )
 from onc_agi.infra.archive import FileScorecardArchive
-from onc_agi.infra.bundles import FileWorldStore
+from onc_agi.infra.bundles import FileWorldStore, world_id_list
 from onc_agi.infra.ledger import JsonLedger
+from onc_agi.infra.recordings import RECORDING_FILE, RecordingWriter, save_run
 from onc_agi.services import scoring
 from onc_agi.services.engine import EpisodeView
 from onc_agi.services.scorecards import MIN_EVAL_WORLDS, ScorecardService
 
 SANDBOX_COMPOSE = Path(__file__).parent / "sandbox" / "compose.yaml"
+SANDBOX: str | tuple[str, str] = ("docker", str(SANDBOX_COMPOSE))  # tests substitute an in-memory one
 
 
 # What every model sees and can do: a card, prompt, tool or image change changes the label.
 HARNESS = behaviour_label("inspect-standard-1.1", Path(__file__), SANDBOX_COMPOSE.with_name("Dockerfile"))
 SAFETY_TIMEOUT_SECONDS = 1800
-OPERATOR_KEY = "inspect-standard"  # caller identity for caps; the harness runs operator-side
+OPERATOR_KEY = "inspect-standard"  # caller identity for caps when the harness runs in-process
 
 
-@dataclass(frozen=True)
 class _Run:
-    service: ScorecardService
-    scorecard_id: str
-    tier: Tier
+    """One task run's scorecard: the arena it plays (in-process or over HTTP) and what it applied.
+
+    A plain class, not a dataclass: ``inspect eval FILE@task`` loads this file outside
+    ``sys.modules``, where dataclasses cannot resolve postponed annotations.
+    """
+
+    def __init__(
+        self,
+        arena: LocalArena | ArenaClient,
+        scorecard_id: str,
+        tier: Tier,
+        agent: str,
+        cards: dict[str, WorldCard],
+        store: FileWorldStore | None,  # in-process only: per-world public-train results in the log
+    ) -> None:
+        self.arena, self.scorecard_id, self.tier, self.agent = arena, scorecard_id, tier, agent
+        self.cards, self.store = cards, store
+        self.opened_at = datetime.now(UTC)
+        self.actions: dict[str, list[tuple[str, str | None]]] = {}  # world -> (action JSON, refusal)
+
+    @property
+    def service(self) -> ScorecardService | None:
+        return self.arena.service if isinstance(self.arena, LocalArena) else None
+
+    def act(self, world_id: str, action: Action) -> Observation:
+        """Apply an action through the arena, keeping it (and any refusal) for the recording."""
+        try:
+            obs = self.arena.act(self.scorecard_id, world_id, action)
+        except ArenaError as exc:
+            refusal = f"{exc.code.value}: {exc.message}"
+            self.actions.setdefault(world_id, []).append((action.model_dump_json(), refusal))
+            raise
+        self.actions.setdefault(world_id, []).append((action.model_dump_json(), None))
+        return obs
+
+    def shutdown(self) -> None:
+        if isinstance(self.arena, LocalArena):
+            self.arena.shutdown()
+        else:
+            self.arena.http.close()
 
 
 _RUNS: dict[str, _Run] = {}  # host-side state, keyed by scorecard id
@@ -156,14 +211,15 @@ def _act(action: Action) -> EpisodeView:
     """Apply a tool action; a refused action returns to the model as a tool error."""
     run, world_id = _here()
     try:
-        return run.service.act(run.scorecard_id, world_id, action)
+        obs = run.act(world_id, action)
     except ArenaError as exc:
         raise ToolError(f"{exc.code.value}: {exc.message}") from exc
+    return view_from_observation(run.cards[world_id], obs)
 
 
 def _step() -> int:
     run, world_id = _here()
-    return run.service.episode(run.scorecard_id, world_id).step
+    return run.arena.state(run.scorecard_id, world_id).step
 
 
 @solver
@@ -211,8 +267,11 @@ def assay() -> Tool:
     return execute
 
 
-def _ranking(answer: str) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(f.strip() for f in answer.replace("\n", ",").split(",") if f.strip()))
+def _ranking(answer: str, valid: set[str] | None = None) -> tuple[str, ...]:
+    """A submitted answer as an ordered ranking: comma- or line-separated ids, first mention kept,
+    and (given ``valid``) only ids the world has. Both tracks parse answers here."""
+    listed = dict.fromkeys(f.strip() for f in answer.replace("\n", ",").split(",") if f.strip())
+    return tuple(f for f in listed if valid is None or f in valid)
 
 
 @scorer(metrics=[mean()])
@@ -220,32 +279,67 @@ def arena_scorer() -> Any:
     async def score(state: TaskState, target: Target) -> Score:
         run = _RUNS[str(state.metadata["scorecard_id"])]
         world_id = str(state.metadata["world_id"])
-        episode = run.service.episode(run.scorecard_id, world_id)
+        card = run.cards[world_id]
         answer = state.output.completion if state.output else ""
-        valid = set(episode.world.card.feature_ids())
-        ranking = tuple(f for f in _ranking(answer) if f in valid)
-        if episode.submission is None:
-            run.service.act(run.scorecard_id, world_id, Submit(request_id="harness-submit", ranking=ranking))
-        if run.tier is not Tier.PUBLIC_TRAIN:  # eval results exist only as the closed scorecard
-            return Score(value=0.0, answer=",".join(ranking), metadata={"exposure": "scorecard only"})
+        valid = set(card.feature_ids())
+        ranking = _ranking(answer, valid)
+        obs = run.arena.state(run.scorecard_id, world_id)
+        if obs.status is EpisodeStatus.ACTIVE:
+            obs = run.act(world_id, Submit(request_id="harness-submit", ranking=ranking))
+        metadata: dict[str, Any] = {"spent": obs.spent}
+        if run.tier is not Tier.PUBLIC_TRAIN or run.store is None:
+            # eval results exist only as the closed scorecard; over HTTP the server scores
+            return Score(value=0.0, answer=",".join(ranking), metadata=metadata | {"exposure": "scorecard"})
         world_score = scoring.score_world(
-            episode.submission or (),
-            run.service.store.answer_key(world_id),
-            spent=episode.spent,
-            sequential=episode.mode is Mode.SEQUENTIAL,
+            ranking,
+            run.store.answer_key(world_id),
+            spent=obs.spent,
+            sequential=card.mode is Mode.SEQUENTIAL,
         )
         value = float(world_score.restrained) if world_score.is_null else world_score.find
         return Score(
             value=value,
             answer=",".join(ranking),
-            metadata={"world_score": world_score.model_dump(mode="json")},
+            metadata=metadata | {"world_score": world_score.model_dump(mode="json")},
         )
 
     return score
 
 
+def _arena(
+    store_root: str | None,
+    url: str | None,
+    key_env: str,
+    keys_dir: str | None,
+    ledger: str | None,
+    archive: str | None,
+    api_key: str,
+    min_eval_worlds: int,
+) -> tuple[LocalArena | ArenaClient, FileWorldStore | None]:
+    """The arena a task run plays: a server over HTTP, or an in-process service on a store."""
+    if (store_root is None) == (url is None):
+        raise ValueError("give store_root= (play in-process) or url= (play a server), not both")
+    if url is not None:
+        key = os.environ.get(key_env, "")
+        if not key:
+            raise ValueError(f"playing a server needs its key in the environment variable {key_env}")
+        return ArenaClient(url, key), None
+    assert store_root is not None
+    worlds = FileWorldStore(Path(store_root), Path(keys_dir) if keys_dir else None)
+    scratch = tempfile.TemporaryDirectory(prefix="arena-inspect-")  # the ledger and archive, unless given
+    service = ScorecardService(
+        worlds,
+        JsonLedger(Path(ledger) if ledger else Path(scratch.name) / "ledger.json"),
+        archive=FileScorecardArchive(Path(archive) if archive else Path(scratch.name) / "archive"),
+        min_eval_worlds=min_eval_worlds,
+    )
+    local = LocalArena(service, api_key)
+    local._tmp = scratch
+    return local, worlds
+
+
 def _task(
-    store_root: str,
+    store_root: str | None,
     tier: str,
     mode: Mode,
     n_worlds: int | None,
@@ -256,29 +350,31 @@ def _task(
     agent: str,
     api_key: str,
     min_eval_worlds: int,
+    world_ids: str | None = None,
+    seed: int | None = None,
+    url: str | None = None,
+    key_env: str = "ARENA_KEY",
 ) -> Task:
-    worlds = FileWorldStore(Path(store_root), Path(keys_dir) if keys_dir else None)
     tier_ = Tier(tier)
-    if tier_ is not Tier.PUBLIC_TRAIN and (ledger is None or n_worlds is None):
+    if url is None and tier_ is not Tier.PUBLIC_TRAIN and (ledger is None or n_worlds is None):
         raise ValueError(
             f"{tier} runs draw fresh worlds: pass the server's ledger= (and archive=) and n_worlds="
         )
-    if n_worlds is None:
-        n_worlds = sum(1 for w in worlds.world_ids(tier_) if worlds.card(w).mode is mode)
-    service = ScorecardService(
-        worlds,
-        JsonLedger(
-            Path(ledger) if ledger else Path(tempfile.mkdtemp(prefix="arena-inspect-")) / "ledger.json"
-        ),
-        archive=FileScorecardArchive(Path(archive)) if archive else None,
-        min_eval_worlds=min_eval_worlds,
-    )
+    if world_ids is not None and n_worlds is not None:
+        raise ValueError("give n_worlds= (a seeded stratified sample) or world_ids=, not both")
+    named = world_id_list(world_ids) if world_ids is not None else None
+    arena, worlds = _arena(store_root, url, key_env, keys_dir, ledger, archive, api_key, min_eval_worlds)
     sid: str | None = None
     try:
-        sid, cards = service.open(
-            api_key, agent=agent, track="standard", tier=tier_, n_worlds=n_worlds, mode=mode
+        if worlds is not None and not worlds.world_ids(tier_):
+            # `inspect eval` runs a task from its file's directory, so a relative path finds nothing
+            raise ValueError(f"no {tier} worlds under store_root={store_root!r}; pass an absolute path")
+        if n_worlds is None and named is None:
+            n_worlds = sum(1 for c in arena.worlds(tier_) if c.mode is mode)
+        sid, cards = arena.open(
+            agent, tier_, n_worlds, track="standard", mode=mode, world_ids=named, seed=seed
         )
-        _RUNS[sid] = _Run(service, sid, tier_)
+        _RUNS[sid] = _Run(arena, sid, tier_, agent, {c.world_id: c for c in cards}, worlds)
         samples = [
             Sample(
                 input=card_text(card),
@@ -299,21 +395,20 @@ def _task(
                 submit_description="Submit the ordered, comma-separated feature ids (or an empty string to abstain).",
             ),
             scorer=arena_scorer(),
-            sandbox=("docker", str(SANDBOX_COMPOSE)),
+            sandbox=SANDBOX,
             time_limit=SAFETY_TIMEOUT_SECONDS,
             epochs=1,  # one episode per world per scorecard; repeat by opening another scorecard
             metadata={"harness": HARNESS, "tier": tier, "mode": mode.value, "scorecard_id": sid},
         )
     except BaseException:
-        if sid is not None:
-            _RUNS.pop(sid, None)
-        service.shutdown()
+        run = _RUNS.pop(sid, None) if sid is not None else None
+        (run or _Run(arena, "", tier_, agent, {}, None)).shutdown()
         raise
 
 
 @task
 def arena_full_access(
-    store_root: str,
+    store_root: str | None = None,
     tier: str = "public_train",
     n_worlds: int | None = None,
     keys_dir: str | None = None,
@@ -323,6 +418,10 @@ def arena_full_access(
     agent: str = "inspect-standard",
     api_key: str = OPERATOR_KEY,
     min_eval_worlds: int = MIN_EVAL_WORLDS,
+    world_ids: str | None = None,
+    seed: int | None = None,
+    url: str | None = None,
+    key_env: str = "ARENA_KEY",
 ) -> Task:
     return _task(
         store_root,
@@ -336,12 +435,16 @@ def arena_full_access(
         agent,
         api_key,
         min_eval_worlds,
+        world_ids,
+        seed,
+        url,
+        key_env,
     )
 
 
 @task
 def arena_sequential(
-    store_root: str,
+    store_root: str | None = None,
     tier: str = "public_train",
     n_worlds: int | None = None,
     keys_dir: str | None = None,
@@ -351,6 +454,10 @@ def arena_sequential(
     agent: str = "inspect-standard",
     api_key: str = OPERATOR_KEY,
     min_eval_worlds: int = MIN_EVAL_WORLDS,
+    world_ids: str | None = None,
+    seed: int | None = None,
+    url: str | None = None,
+    key_env: str = "ARENA_KEY",
 ) -> Task:
     return _task(
         store_root,
@@ -364,16 +471,11 @@ def arena_sequential(
         agent,
         api_key,
         min_eval_worlds,
+        world_ids,
+        seed,
+        url,
+        key_env,
     )
-
-
-class Price(NamedTuple):
-    """USD per token. Cached input is often billed differently; unset cache prices fall back to ``input``."""
-
-    input: float
-    output: float
-    cache_read: float | None = None
-    cache_write: float | None = None
 
 
 Prices = Mapping[str, Price]  # model name as Inspect reports it -> price
@@ -406,22 +508,160 @@ def close_scorecard(
     agent: str | None = None,
     prices: Prices | None = None,
     service: ScorecardService | None = None,
+    record: Path | None = None,
 ) -> Scorecard:
     """Close the scorecard a task run opened, recording model, harness, tokens and cost.
 
     In the process that ran the eval the scorecard is still held here; elsewhere pass a
     ``service`` rebuilt from the same store, ledger and archive (it restores open scorecards).
+    With ``record`` (in the process that ran the eval), write the run directory: the recording,
+    the server trace and the scorecard, as ``onc-agi play --record`` writes them.
     """
     sid = str((log.eval.metadata or {})["scorecard_id"])
-    svc = service or _RUNS[sid].service
+    tokens, cost = usage(log, prices)
+    if service is not None:
+        if record is not None:
+            raise ValueError("a run is recorded by the process that ran it")
+        card = service.close(sid, model=log.eval.model, harness=HARNESS, tokens=tokens, cost_usd=cost)
+        return card if agent is None else card.model_copy(update={"agent": agent})
+    run = _RUNS[sid]
     try:
-        tokens, cost = usage(log, prices)
-        card = svc.close(sid, model=log.eval.model, harness=HARNESS, tokens=tokens, cost_usd=cost)
+        if isinstance(run.arena, LocalArena):
+            card = run.arena.close(sid, model=log.eval.model, harness=HARNESS, tokens=tokens, cost_usd=cost)
+        else:  # a server's close takes no client claims; they annotate the returned copy
+            labels = {"model": log.eval.model, "harness": HARNESS, "tokens": tokens, "cost_usd": cost}
+            card = run.arena.close(sid).model_copy(update={k: v for k, v in labels.items() if v is not None})
+        if agent is not None:
+            card = card.model_copy(update={"agent": agent})
+        if record is not None:
+            _record(record, run, log, card)
     finally:
         _RUNS.pop(sid, None)
-        if service is None:
-            svc.shutdown()
-    return card if agent is None else card.model_copy(update={"agent": agent})
+        run.shutdown()
+    return card
+
+
+def _with_actions(
+    events: Sequence[RecordingEvent], actions: Sequence[tuple[str, str | None]]
+) -> list[RecordingEvent]:
+    """One world's Inspect transcript with the actions the arena applied placed where they happened:
+    the reset first, each recruit or assay after its tool call, the harness's submit last."""
+    if not events and not actions:
+        return []
+    wid = events[0].world_id if events else ""
+    base = events[0] if events else None
+    queue = list(actions)
+    out: list[RecordingEvent] = []
+
+    def kind(item: tuple[str, str | None]) -> str:
+        return str(json.loads(item[0]).get("kind"))
+
+    def emit() -> None:
+        action, refusal = queue.pop(0)
+        content = action if refusal is None else f"{action}\nrefused: {refusal}"
+        out.append(_event(base, wid, "action", content, error=refusal is not None))
+
+    if queue and kind(queue[0]) == "reset":
+        emit()
+    for event in events:
+        out.append(event)
+        if (
+            event.kind == "tool_call"
+            and event.tool in ("recruit", "assay")
+            and queue
+            and kind(queue[0]) == event.tool
+        ):
+            emit()
+    while queue:
+        emit()
+    return [e.model_copy(update={"turn": i}) for i, e in enumerate(out)]
+
+
+def _event(
+    base: RecordingEvent | None, world_id: str, kind: Any, content: str, *, error: bool
+) -> RecordingEvent:
+    return RecordingEvent(
+        scorecard_id=base.scorecard_id if base else None,
+        world_id=world_id,
+        turn=0,
+        kind=kind,
+        content=content,
+        error=error,
+        ts=base.ts if base else datetime.now(UTC),
+    )
+
+
+def _record(directory: Path, run: _Run, log: EvalLog, card: Scorecard) -> None:
+    """Write the run directory: recording (transcript and applied actions), server trace, scorecard."""
+    events, runs = transcript(log)
+    header = RecordingHeader(
+        scorecard_id=run.scorecard_id,
+        agent=card.agent,
+        tier=run.tier,
+        track="standard",
+        world_ids=tuple(run.cards),
+        model=log.eval.model,
+        harness=HARNESS,
+        opened_at=run.opened_at,
+    )
+    by_world: dict[str, list[RecordingEvent]] = {}
+    for event in events:
+        by_world.setdefault(event.world_id, []).append(event)
+    with RecordingWriter(directory / RECORDING_FILE) as writer:
+        writer.header(header)
+        for wid in run.cards:
+            for event in _with_actions(by_world.get(wid, []), run.actions.get(wid, [])):
+                writer.append(event.model_copy(update={"scorecard_id": run.scorecard_id, "world_id": wid}))
+        for record in sorted(runs, key=lambda r: list(run.cards).index(r.world_id)):
+            writer.run(record)
+    save_run(directory, card, server_trace(run.arena, run.scorecard_id))
+
+
+class StandardRun(NamedTuple):
+    scorecard: Scorecard
+    log_path: Path
+    record: Path | None
+
+
+def run_standard(
+    *,
+    mode: Mode,
+    model: Any,
+    record: Path | None = None,
+    log_dir: Path = Path("logs"),
+    model_config: Mapping[str, Any] | None = None,
+    prices: Prices | None = None,
+    agent: str | None = None,
+    max_samples: int = 4,
+    **task_args: Any,
+) -> StandardRun:
+    """One standard-track scorecard end to end: run the Inspect task for ``mode`` with ``model``
+    (an Inspect model or model string), close the scorecard and, with ``record``, write the run
+    directory. ``task_args`` are the task's parameters (``store_root`` or ``url``, ``tier``,
+    ``n_worlds`` or ``world_ids``, ``seed``, ``message_limit``, ...); ``model_config`` holds
+    Inspect ``GenerateConfig`` fields (:meth:`Profile.inspect_config`)."""
+    from inspect_ai import eval as inspect_eval
+
+    make = arena_full_access if mode is Mode.FULL_ACCESS else arena_sequential
+    if agent is not None:
+        task_args.setdefault("agent", agent)
+    logs = inspect_eval(
+        make(**task_args),
+        model=model,
+        log_dir=str(log_dir),
+        max_samples=max_samples,
+        display="none",
+        **dict(model_config or {}),
+    )
+    log = logs[0]
+    if log.status != "success":
+        sid = (log.eval.metadata or {}).get("scorecard_id")
+        run = _RUNS.pop(str(sid), None)
+        if run is not None:
+            run.shutdown()
+        raise RuntimeError(f"the Inspect run ended with status {log.status}: {log.error}")
+    card = close_scorecard(log, agent=agent, prices=prices, record=record)
+    return StandardRun(card, Path(log.location), record)
 
 
 def log_to_scorecard(log: EvalLog, *, agent: str, tier: Tier, prices: Prices | None = None) -> Scorecard:

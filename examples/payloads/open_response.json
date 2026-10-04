@@ -4,142 +4,142 @@
    "budget": 25920.0,
    "features": [
     {
-     "assay_price": 3.0,
-     "data_type": "copy_number",
-     "feature_id": "xnw5",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "qzh8",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 0.5,
-     "data_type": "clinical",
-     "feature_id": "pgp2",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "pkp4",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "jmp9",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "dmm7",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "ksn1",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 3.0,
-     "data_type": "copy_number",
-     "feature_id": "zgl6",
-     "timing": "baseline"
-    },
-    {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "czj6",
-     "timing": "post_outcome"
+     "feature_id": "vjl4",
+     "timing": "baseline"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "dmf4",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 1.0,
-     "data_type": "derived",
-     "feature_id": "cln8",
+     "feature_id": "kvc9",
      "timing": "baseline"
     },
     {
      "assay_price": 8.0,
      "data_type": "protein",
-     "feature_id": "hkw1",
+     "feature_id": "cdv5",
      "timing": "baseline"
     },
     {
      "assay_price": 8.0,
      "data_type": "protein",
-     "feature_id": "vfl8",
+     "feature_id": "swb1",
      "timing": "baseline"
     },
     {
      "assay_price": 1.0,
      "data_type": "derived",
-     "feature_id": "lpp7",
+     "feature_id": "gdn9",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "tcr1",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "kcg9",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "wbm3",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "zgf8",
      "timing": "baseline"
     },
     {
      "assay_price": 3.0,
      "data_type": "copy_number",
-     "feature_id": "tjt6",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "rfw4",
+     "feature_id": "trt7",
      "timing": "baseline"
     },
     {
      "assay_price": 0.5,
      "data_type": "clinical",
-     "feature_id": "tfr8",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "rpn1",
+     "feature_id": "xwp5",
      "timing": "baseline"
     },
     {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "wzt7",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "czx9",
-     "timing": "baseline"
+     "feature_id": "rhj2",
+     "timing": "post_outcome"
     },
     {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "hrm7",
+     "feature_id": "tcg6",
      "timing": "post_outcome"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "psz4",
+     "feature_id": "qnx9",
      "timing": "baseline"
     },
     {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "gtw3",
+     "feature_id": "rtd7",
      "timing": "post_outcome"
+    },
+    {
+     "assay_price": 1.0,
+     "data_type": "derived",
+     "feature_id": "zbb3",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "dqr2",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "ncm1",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 3.0,
+     "data_type": "copy_number",
+     "feature_id": "ttf7",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "ggf1",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 3.0,
+     "data_type": "copy_number",
+     "feature_id": "fvk2",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 0.5,
+     "data_type": "clinical",
+     "feature_id": "kcc4",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "tcg3",
+     "timing": "baseline"
     }
    ],
    "interface_version": "1.0",
@@ -153,155 +153,153 @@
     "recruit_per_patient": 40.0
    },
    "strata": [
-    "s-a",
-    "s-b"
+    "all"
    ],
    "stratum_sizes": {
-    "s-a": 111,
-    "s-b": 129
+    "all": 240
    },
    "tier": "public_train",
-   "world_id": "toy-confounder-full"
+   "world_id": "toy-interaction-full"
   },
   {
    "budget": 25920.0,
    "features": [
     {
-     "assay_price": 3.0,
-     "data_type": "copy_number",
-     "feature_id": "hvg8",
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "lld6",
      "timing": "baseline"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "rmg9",
+     "feature_id": "dcs2",
      "timing": "baseline"
     },
     {
-     "assay_price": 8.0,
-     "data_type": "protein",
-     "feature_id": "mwq8",
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "fbx1",
      "timing": "baseline"
     },
     {
      "assay_price": 0.5,
      "data_type": "clinical",
-     "feature_id": "xdf1",
+     "feature_id": "qbg4",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "szl8",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "ccg7",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 5.0,
+     "data_type": "lab",
+     "feature_id": "lnx8",
+     "timing": "post_outcome"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "pwz6",
      "timing": "baseline"
     },
     {
      "assay_price": 1.0,
      "data_type": "derived",
-     "feature_id": "wlk7",
+     "feature_id": "fzp6",
      "timing": "baseline"
+    },
+    {
+     "assay_price": 5.0,
+     "data_type": "lab",
+     "feature_id": "dqn5",
+     "timing": "post_outcome"
     },
     {
      "assay_price": 8.0,
      "data_type": "protein",
-     "feature_id": "bcd5",
+     "feature_id": "mdw5",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 3.0,
+     "data_type": "copy_number",
+     "feature_id": "qdf6",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 3.0,
+     "data_type": "copy_number",
+     "feature_id": "jrp2",
      "timing": "baseline"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "lhk1",
+     "feature_id": "djw3",
      "timing": "baseline"
     },
     {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "ltj3",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "sgr7",
+     "assay_price": 3.0,
+     "data_type": "copy_number",
+     "feature_id": "trf4",
      "timing": "baseline"
     },
     {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "czd1",
-     "timing": "post_outcome"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "npr7",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 1.0,
-     "data_type": "derived",
-     "feature_id": "qsr2",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 5.0,
-     "data_type": "lab",
-     "feature_id": "xmt3",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 5.0,
-     "data_type": "lab",
-     "feature_id": "nlz6",
-     "timing": "post_outcome"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "qvs9",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "zhk8",
+     "feature_id": "bvl4",
      "timing": "baseline"
     },
     {
      "assay_price": 0.5,
      "data_type": "clinical",
-     "feature_id": "rsg5",
+     "feature_id": "wkg5",
      "timing": "baseline"
     },
     {
-     "assay_price": 3.0,
-     "data_type": "copy_number",
-     "feature_id": "wsc5",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 3.0,
-     "data_type": "copy_number",
-     "feature_id": "zxq3",
-     "timing": "baseline"
-    },
-    {
-     "assay_price": 2.0,
-     "data_type": "expression",
-     "feature_id": "svg1",
+     "assay_price": 1.0,
+     "data_type": "derived",
+     "feature_id": "nhj6",
      "timing": "baseline"
     },
     {
      "assay_price": 5.0,
      "data_type": "lab",
-     "feature_id": "rqh9",
+     "feature_id": "kjp9",
      "timing": "post_outcome"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "mhs7",
+     "feature_id": "xqd8",
      "timing": "baseline"
     },
     {
      "assay_price": 2.0,
      "data_type": "expression",
-     "feature_id": "dvg6",
+     "feature_id": "xnd1",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 8.0,
+     "data_type": "protein",
+     "feature_id": "zhk5",
+     "timing": "baseline"
+    },
+    {
+     "assay_price": 2.0,
+     "data_type": "expression",
+     "feature_id": "bcj9",
      "timing": "baseline"
     }
    ],
@@ -316,15 +314,13 @@
     "recruit_per_patient": 40.0
    },
    "strata": [
-    "s-a",
-    "s-b"
+    "all"
    ],
    "stratum_sizes": {
-    "s-a": 116,
-    "s-b": 124
+    "all": 240
    },
    "tier": "public_train",
-   "world_id": "toy-confounder-seq"
+   "world_id": "toy-interaction-seq"
   }
  ],
  "interface_version": "1.0",

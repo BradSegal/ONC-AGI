@@ -8,6 +8,7 @@ import pytest
 from arena_factories import InMemoryStore, fid, planted_world
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.schema import ErrorCode, Mode, Recruit, Reset, Submit, Tier, TraceEvent
+from onc_agi.services import sampling
 from onc_agi.services.scorecards import (
     PRIVATE_TOTAL_CAP,
     PUBLIC_EVAL_DAILY_CAP,
@@ -113,6 +114,78 @@ def test_public_train_may_reuse_worlds_and_marks_nothing_used() -> None:
     _, b = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=3)
     assert [c.world_id for c in a] == [c.world_id for c in b]
     assert ledger.used(Tier.PUBLIC_TRAIN) == set()
+
+
+def test_public_train_draws_are_seeded_stratified_samples_not_the_first_ids() -> None:
+    store = tiered_store(12)
+    svc, _, _ = service(store)
+    profiles = sampling.world_profiles(store, Tier.PUBLIC_TRAIN)
+    for seed in (None, 0, 3):
+        _, cards = svc.open(
+            "key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=4, seed=seed
+        )
+        expected = sampling.stratified_sample(profiles, 4, seed or 0).world_ids
+        assert tuple(c.world_id for c in cards) == expected
+        assert expected != store.world_ids(Tier.PUBLIC_TRAIN)[:4]
+    named = ("public-train-07", "public-train-01")
+    _, cards = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, world_ids=named)
+    assert tuple(c.world_id for c in cards) == named  # named worlds keep their order
+
+
+@pytest.mark.parametrize(
+    ("tier", "extra"),
+    [
+        (Tier.PUBLIC_EVAL, {"n_worlds": 2, "seed": 1}),
+        (Tier.PUBLIC_TRAIN, {"world_ids": ("public-train-01",), "seed": 1}),
+        (Tier.PUBLIC_TRAIN, {"n_worlds": 2, "seed": -1}),
+    ],
+)
+def test_seeds_apply_to_drawn_public_train_worlds_only(tier: Tier, extra: dict[str, object]) -> None:
+    svc, ledger, _ = service()
+    with pytest.raises(ArenaError, match="seed") as err:
+        svc.open("key-aaaa", agent="a", track="open", tier=tier, **extra)  # type: ignore[arg-type]
+    assert err.value.code is ErrorCode.INVALID_PAYLOAD and ledger.used_ids == {}
+
+
+def test_named_worlds_errors_name_only_the_offending_ids() -> None:
+    svc, _, _ = service(tiered_store(12))
+    named = tuple(f"public-train-{i:02d}" for i in range(10))
+    with pytest.raises(ArenaError) as err:
+        svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, world_ids=(*named, named[3]))
+    assert err.value.code is ErrorCode.UNKNOWN_WORLD
+    assert err.value.message == "listed more than once ['public-train-03']"
+    with pytest.raises(ArenaError) as err:
+        svc.open(
+            "key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, world_ids=(*named, "nope", "nope")
+        )
+    assert err.value.message == "unknown public_train worlds ['nope']; listed more than once ['nope']"
+
+
+class CountingStore(InMemoryStore):
+    """Counts card reads, to show which opens read the whole store."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.card_reads = 0
+
+    def card(self, world_id: str):  # type: ignore[no-untyped-def]
+        self.card_reads += 1
+        return super().card(world_id)
+
+
+def test_public_train_draws_read_the_store_once_per_world_set() -> None:
+    store = CountingStore()
+    for i in range(12):
+        store.add(*planted_world(f"pt-{i:02d}", signal=i % 3 != 2, seed=i, n_pool=60))
+    svc, _, _ = service(store)  # type: ignore[arg-type]
+    _, first = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=4, seed=1)
+    reads = store.card_reads
+    _, again = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=4, seed=1)
+    svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=3, mode=Mode.FULL_ACCESS)
+    assert first == again and store.card_reads - reads == 4 + 3  # only the opened worlds' cards
+    store.add(*planted_world("pt-12", signal=True, seed=12, n_pool=60))  # a new world: profiles re-read
+    _, cards = svc.open("key-aaaa", agent="a", track="open", tier=Tier.PUBLIC_TRAIN, n_worlds=13)
+    assert "pt-12" in {c.world_id for c in cards}
 
 
 def test_public_eval_is_capped_per_key_per_day() -> None:

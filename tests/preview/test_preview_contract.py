@@ -46,7 +46,7 @@ def test_malformed_actions_fail_schema_validation(bad: dict[str, object]) -> Non
         jsonschema.validate(bad, schema("ActionEnvelope.schema.json"))
 
 
-def test_openapi_lists_the_seven_endpoints() -> None:
+def test_openapi_lists_the_eight_endpoints() -> None:
     paths = set(schema("openapi.json")["paths"])  # type: ignore[arg-type]
     assert paths == {
         "/v1/health",
@@ -56,4 +56,5 @@ def test_openapi_lists_the_seven_endpoints() -> None:
         "/v1/scorecards/{sid}/worlds/{wid}/actions",
         "/v1/scorecards/{sid}/worlds/{wid}",
         "/v1/scorecards/{sid}/close",
+        "/v1/scorecards/{sid}/trace",  # rc4: a closed scorecard's server trace, for replay (additive)
     }

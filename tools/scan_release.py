@@ -10,7 +10,7 @@ no commit yet, and every path that ever existed in the history:
 * Parquet only inside the packaged fixture store, and no file over 5 MB;
 * no ``data/``, ``tickets/``, ``design/`` or ``keys/`` directories, and no ``.env``.
 
-It then runs ``gitleaks`` over the full history when it is installed. Exit code 0
+It then runs ``gitleaks`` over the full history and the current working tree. A missing scanner fails closed. Exit code 0
 means every check passed.
 
     uv run python tools/scan_release.py
@@ -22,7 +22,7 @@ import json
 import re
 import shutil
 import subprocess
-import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,14 +45,14 @@ SELF = "tools/scan_release.py"
 
 
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=False).stdout
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout
 
 
 def current_files() -> list[str]:
     """Tracked files plus untracked files that are not ignored (what the next commit could add)."""
-    tracked = git("ls-files").split()
-    untracked = git("ls-files", "--others", "--exclude-standard").split()
-    return sorted(set(tracked) | set(untracked))
+    tracked = git("ls-files", "-z").split("\0")
+    untracked = git("ls-files", "--others", "--exclude-standard", "-z").split("\0")
+    return sorted((set(tracked) | set(untracked)) - {""})
 
 
 def history_paths() -> set[str]:
@@ -98,14 +98,25 @@ def scan() -> list[str]:
 
 def gitleaks() -> list[str]:
     if shutil.which("gitleaks") is None:
-        print("gitleaks not installed: history secret scan skipped", file=sys.stderr)
-        return []
-    if not git("rev-parse", "--verify", "HEAD").strip():
-        print("no commits yet: history secret scan skipped", file=sys.stderr)
-        return []
-    args = ["gitleaks", "git", str(ROOT), "--no-banner", "--redact", "--log-opts=--all"]
-    result = subprocess.run(args, capture_output=True, text=True, check=False)
-    return [] if result.returncode == 0 else [f"gitleaks: {result.stdout.strip() or result.stderr.strip()}"]
+        return ["gitleaks is required: install it before running the release scan"]
+    git("rev-parse", "--verify", "HEAD")
+    problems = []
+    with tempfile.TemporaryDirectory(prefix="onc-secret-scan-") as directory:
+        candidate = Path(directory)
+        for rel in current_files():
+            source = ROOT / rel
+            if source.is_symlink():
+                problems.append(f"{rel}: symlinks are not permitted in the release candidate")
+            elif source.is_file():
+                target = candidate / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+        for mode, root, extra in (("git", ROOT, ["--log-opts=--all"]), ("dir", candidate, [])):
+            args = ["gitleaks", mode, str(root), "--no-banner", "--redact", *extra]
+            result = subprocess.run(args, capture_output=True, text=True, check=False)
+            if result.returncode:
+                problems.append(f"gitleaks {mode}: {result.stdout.strip() or result.stderr.strip()}")
+    return problems
 
 
 def main() -> int:

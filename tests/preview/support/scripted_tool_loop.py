@@ -1,16 +1,7 @@
-"""Skeleton for an LLM agent: the arena actions as tools, one tool call per turn.
+"""Offline scripted tool-loop fixture for contract regression tests.
 
-``ToolPolicy`` is the only piece to replace. It receives the conversation so far
-and returns one tool call. The default ``ScriptedPolicy`` needs no model or
-network, so this file runs offline and shows the loop end to end. To plug in a
-model, implement ``ToolPolicy.next_call`` with your provider's tool-calling API
-and pass ``TOOLS`` as the tool definitions.
-
-The official standard track runs models through the Inspect task in
-``onc_agi.adapters.inspect_task`` (fixed prompt, the same tools, a no-network
-analysis sandbox). Use this skeleton for the open track or for prototyping.
-
-    uv run python examples/agents/llm_agent.py
+The supported model runner is ``onc-agi play --agent llm``. This fixture
+exercises tool dispatch and scoring without contacting a model provider.
 """
 
 from __future__ import annotations

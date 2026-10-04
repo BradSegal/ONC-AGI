@@ -84,3 +84,15 @@ def test_scan_remembers_forbidden_paths_deleted_from_history(scratch: Path) -> N
     shutil.rmtree(scratch / "data")
     commit(scratch)
     assert any("data/cohort.csv" in problem for problem in scan_release.scan())
+
+
+def test_missing_secret_scanner_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scan_release.shutil, "which", lambda _: None)
+    assert scan_release.gitleaks() == ["gitleaks is required: install it before running the release scan"]
+
+
+def test_scan_handles_spaces_in_filenames(scratch: Path) -> None:
+    path = scratch / "a file.json"
+    path.write_text(json.dumps({"groups": [], "reject_set": []}))
+    assert "a file.json" in scan_release.current_files()
+    assert any("answer-key" in problem for problem in scan_release.scan())

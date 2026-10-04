@@ -1,0 +1,537 @@
+{
+ "world": "toy-stand-in-seq",
+ "n_pool": 240,
+ "budget": 25920.0,
+ "reference_cost": 17280.0,
+ "recruit_price": 40.0,
+ "features": [
+  {
+   "id": "ndp3",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "cqt1",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "tjn8",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "tnr4",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "bqx7",
+   "type": "lab",
+   "timing": "post_outcome",
+   "price": 5.0
+  },
+  {
+   "id": "njh5",
+   "type": "lab",
+   "timing": "post_outcome",
+   "price": 5.0
+  },
+  {
+   "id": "gwt2",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "rqg2",
+   "type": "protein",
+   "timing": "baseline",
+   "price": 8.0
+  },
+  {
+   "id": "jdh4",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "shq1",
+   "type": "copy_number",
+   "timing": "baseline",
+   "price": 3.0
+  },
+  {
+   "id": "fsc9",
+   "type": "copy_number",
+   "timing": "baseline",
+   "price": 3.0
+  },
+  {
+   "id": "wcl7",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "ppt1",
+   "type": "copy_number",
+   "timing": "baseline",
+   "price": 3.0
+  },
+  {
+   "id": "bkb2",
+   "type": "derived",
+   "timing": "baseline",
+   "price": 1.0
+  },
+  {
+   "id": "chj6",
+   "type": "clinical",
+   "timing": "baseline",
+   "price": 0.5
+  },
+  {
+   "id": "rws7",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "gwg3",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "kbb1",
+   "type": "lab",
+   "timing": "post_outcome",
+   "price": 5.0
+  },
+  {
+   "id": "lsd2",
+   "type": "lab",
+   "timing": "baseline",
+   "price": 5.0
+  },
+  {
+   "id": "xlg5",
+   "type": "expression",
+   "timing": "baseline",
+   "price": 2.0
+  },
+  {
+   "id": "dlq6",
+   "type": "derived",
+   "timing": "baseline",
+   "price": 1.0
+  },
+  {
+   "id": "pvq6",
+   "type": "clinical",
+   "timing": "baseline",
+   "price": 0.5
+  },
+  {
+   "id": "ltj7",
+   "type": "protein",
+   "timing": "baseline",
+   "price": 8.0
+  }
+ ],
+ "agent_threshold": 2.602,
+ "stages": [
+  {
+   "patients": 30,
+   "spent": 3240.0,
+   "evidence": {
+    "ndp3": 3.984,
+    "cqt1": 0.974,
+    "tjn8": 0.772,
+    "tnr4": 0.854,
+    "bqx7": 0.138,
+    "njh5": 1.082,
+    "gwt2": 0.705,
+    "rqg2": 0.857,
+    "jdh4": 0.215,
+    "shq1": 0.757,
+    "fsc9": 0.825,
+    "wcl7": 2.545,
+    "ppt1": 0.712,
+    "bkb2": 0.418,
+    "chj6": 0.1,
+    "rws7": 0.011,
+    "gwg3": 0.011,
+    "kbb1": 0.078,
+    "lsd2": 0.2,
+    "xlg5": 0.245,
+    "dlq6": 0.141,
+    "pvq6": 0.053,
+    "ltj7": 0.064
+   }
+  },
+  {
+   "patients": 60,
+   "spent": 6480.0,
+   "evidence": {
+    "ndp3": 8.176,
+    "cqt1": 0.593,
+    "tjn8": 0.162,
+    "tnr4": 0.954,
+    "bqx7": 0.014,
+    "njh5": 1.859,
+    "gwt2": 0.361,
+    "rqg2": 0.379,
+    "jdh4": 0.228,
+    "shq1": 0.539,
+    "fsc9": 0.989,
+    "wcl7": 7.047,
+    "ppt1": 0.32,
+    "bkb2": 0.191,
+    "chj6": 0.195,
+    "rws7": 0.186,
+    "gwg3": 0.34,
+    "kbb1": 0.003,
+    "lsd2": 0.052,
+    "xlg5": 0.032,
+    "dlq6": 0.054,
+    "pvq6": 0.063,
+    "ltj7": 0.223
+   }
+  },
+  {
+   "patients": 90,
+   "spent": 9720.0,
+   "evidence": {
+    "ndp3": 9.193,
+    "cqt1": 1.12,
+    "tjn8": 0.474,
+    "tnr4": 0.999,
+    "bqx7": 0.01,
+    "njh5": 0.847,
+    "gwt2": 0.152,
+    "rqg2": 0.81,
+    "jdh4": 0.068,
+    "shq1": 0.63,
+    "fsc9": 0.553,
+    "wcl7": 8.199,
+    "ppt1": 0.124,
+    "bkb2": 0.008,
+    "chj6": 0.217,
+    "rws7": 0.163,
+    "gwg3": 0.173,
+    "kbb1": 0.096,
+    "lsd2": 0.009,
+    "xlg5": 0.109,
+    "dlq6": 0.054,
+    "pvq6": 0.342,
+    "ltj7": 0.39
+   }
+  },
+  {
+   "patients": 120,
+   "spent": 12960.0,
+   "evidence": {
+    "ndp3": 11.47,
+    "cqt1": 0.521,
+    "tjn8": 0.887,
+    "tnr4": 0.713,
+    "bqx7": 0.058,
+    "njh5": 0.428,
+    "gwt2": 0.328,
+    "rqg2": 0.719,
+    "jdh4": 0.062,
+    "shq1": 0.231,
+    "fsc9": 0.375,
+    "wcl7": 9.472,
+    "ppt1": 0.114,
+    "bkb2": 0.209,
+    "chj6": 0.455,
+    "rws7": 1.138,
+    "gwg3": 0.224,
+    "kbb1": 0.024,
+    "lsd2": 0.158,
+    "xlg5": 0.001,
+    "dlq6": 0.128,
+    "pvq6": 0.315,
+    "ltj7": 1.007
+   }
+  },
+  {
+   "patients": 160,
+   "spent": 17280.0,
+   "evidence": {
+    "ndp3": 13.515,
+    "cqt1": 1.65,
+    "tjn8": 1.246,
+    "tnr4": 0.532,
+    "bqx7": 0.008,
+    "njh5": 0.203,
+    "gwt2": 0.173,
+    "rqg2": 1.0,
+    "jdh4": 0.286,
+    "shq1": 0.244,
+    "fsc9": 0.148,
+    "wcl7": 11.164,
+    "ppt1": 0.038,
+    "bkb2": 0.062,
+    "chj6": 0.017,
+    "rws7": 0.175,
+    "gwg3": 0.499,
+    "kbb1": 0.323,
+    "lsd2": 0.184,
+    "xlg5": 0.107,
+    "dlq6": 0.056,
+    "pvq6": 0.506,
+    "ltj7": 1.206
+   }
+  },
+  {
+   "patients": 200,
+   "spent": 21600.0,
+   "evidence": {
+    "ndp3": 16.98,
+    "cqt1": 1.533,
+    "tjn8": 2.159,
+    "tnr4": 0.663,
+    "bqx7": 0.005,
+    "njh5": 0.6,
+    "gwt2": 0.134,
+    "rqg2": 0.523,
+    "jdh4": 0.196,
+    "shq1": 0.502,
+    "fsc9": 0.47,
+    "wcl7": 14.277,
+    "ppt1": 0.396,
+    "bkb2": 0.298,
+    "chj6": 0.164,
+    "rws7": 0.211,
+    "gwg3": 0.579,
+    "kbb1": 0.135,
+    "lsd2": 0.165,
+    "xlg5": 0.43,
+    "dlq6": 0.253,
+    "pvq6": 0.726,
+    "ltj7": 0.551
+   }
+  },
+  {
+   "patients": 240,
+   "spent": 25920.0,
+   "evidence": {
+    "ndp3": 22.145,
+    "cqt1": 1.2,
+    "tjn8": 1.972,
+    "tnr4": 0.197,
+    "bqx7": 0.124,
+    "njh5": 0.603,
+    "gwt2": 0.249,
+    "rqg2": 0.419,
+    "jdh4": 0.02,
+    "shq1": 0.366,
+    "fsc9": 0.163,
+    "wcl7": 18.344,
+    "ppt1": 0.261,
+    "bkb2": 0.006,
+    "chj6": 0.537,
+    "rws7": 0.009,
+    "gwg3": 0.436,
+    "kbb1": 0.26,
+    "lsd2": 0.096,
+    "xlg5": 0.108,
+    "dlq6": 0.082,
+    "pvq6": 0.425,
+    "ltj7": 0.35
+   }
+  }
+ ],
+ "scoring": {
+  "depth": 1,
+  "is_null": false,
+  "reject": [
+   "njh5",
+   "kbb1",
+   "bqx7"
+  ],
+  "neutral": [],
+  "clusters": {
+   "ndp3": 2000,
+   "cqt1": 400,
+   "tjn8": 1200,
+   "tnr4": 300,
+   "bqx7": 1500,
+   "njh5": 1000,
+   "gwt2": 100,
+   "rqg2": 700,
+   "jdh4": 1100,
+   "shq1": 2100,
+   "fsc9": 2200,
+   "wcl7": 2000,
+   "ppt1": 1300,
+   "bkb2": 500,
+   "chj6": 1400,
+   "rws7": 800,
+   "gwg3": 1800,
+   "kbb1": 1900,
+   "lsd2": 1700,
+   "xlg5": 200,
+   "dlq6": 1600,
+   "pvq6": 600,
+   "ltj7": 900
+  },
+  "find_first": {
+   "ndp3": {
+    "find": 1.0,
+    "find_exact": 1.0,
+    "chance": 0.21,
+    "raw": 1.0
+   },
+   "cqt1": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "tjn8": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "tnr4": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "bqx7": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "njh5": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "gwt2": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "rqg2": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "jdh4": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "shq1": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "fsc9": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "wcl7": {
+    "find": 1.0,
+    "find_exact": 1.0,
+    "chance": 0.21,
+    "raw": 1.0
+   },
+   "ppt1": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "bkb2": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "chj6": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "rws7": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "gwg3": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "kbb1": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "lsd2": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "xlg5": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.21,
+    "raw": 0.0
+   },
+   "dlq6": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "pvq6": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   },
+   "ltj7": {
+    "find": 0.0,
+    "find_exact": 0.0,
+    "chance": 0.0,
+    "raw": 0.0
+   }
+  },
+  "rule": "leaked = any listed feature is in reject; reps = the first-listed feature of each cluster, after removing neutral features; abstained = no reps; find = 0 if is_null or leaked or abstained, else find_first[reps[0]].find (depth == 1: only the first representative earns credit, and chance depends only on its stratum); efficiency = 1 if spent <= 0 else min(1, reference_cost / spent)"
+ },
+ "check": {
+  "lists": 11156,
+  "longest": 3,
+  "spends": [
+   12960.0,
+   21600.0
+  ]
+ }
+}

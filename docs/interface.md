@@ -1,6 +1,6 @@
 # ONC-AGI interface contract v1.0
 
-This document is for harness authors. Every payload that crosses a process, file or network boundary is a model in `onc_agi.core.schema`, and this page describes those models. Every JSON example tagged `schema=<Model>` is validated against that model by the package's test suite (`tests/runtime/unit/test_interface_doc.py`), so the examples cannot drift from the code.
+This document is for harness authors. Every payload that crosses a process, file or network boundary is a model in `onc_agi.core.schema`, and this page describes those models. Every JSON example tagged `schema=<Model>` is validated against that model by the package's test suite (`tests/runtime/unit/test_interface_doc.py`), to detect drift from the code.
 
 ## Version and change policy
 
@@ -12,6 +12,8 @@ This document is for harness authors. Every payload that crosses a process, file
 Every change is listed in `CHANGELOG.md`. Models reject unknown fields (`extra="forbid"`), so a client that sends a field the server does not know gets a typed error instead of a silent drop.
 
 Survival outcomes were added within 1.0 as optional fields that are **omitted when absent** (`WorldCard.horizon_days`, `RevealedData.time`). Binary cards and observations are therefore byte-identical to what a 1.0 server always sent, and a strict 1.0 client parses them unchanged. A client must understand these two fields before it plays a survival world.
+
+The development runtime additionally accepts `OpenRequest.seed` for public-train sampling. Released clients and servers may not support it; unknown fields are rejected. Omit it when using the common contract below.
 
 ## The task
 
@@ -46,7 +48,7 @@ The card is everything an agent may know before acting. Prices and budget are tr
 }
 ```
 
-`post_outcome` features are measured after the outcome. Listing one in a submission is a **leak** and zeroes that world.
+`post_outcome` features are measured after the outcome. Listing one in a submission is a **leak**: Find and Strict become zero for that world, regardless of its position.
 
 ## Actions
 
@@ -176,22 +178,26 @@ A scorecard belongs to the key that opened it. Only that key may act on it, read
 | Method and path | Body | Returns |
 |---|---|---|
 | `GET /v1/health` | none | `{"status": "ok", "interface_version": "1.0"}` |
+| `GET /v1/worlds` | none | Public-train world cards |
 | `POST /v1/scorecards` | `OpenRequest` | `scorecard_id` and the drawn world cards |
 | `POST /v1/scorecards/{sid}/worlds/{wid}/actions` | `ActionEnvelope` | `Observation` |
 | `GET /v1/scorecards/{sid}/worlds/{wid}` | none | current `Observation` (resume) |
 | `POST /v1/scorecards/{sid}/close` | none | `Scorecard` |
 | `GET /v1/scorecards/{sid}` | none | the owner's closed `Scorecard` on record, identical to the close response (`action_not_available` while still open) |
+| `GET /v1/scorecards/{sid}/trace` | none | the owner's `ScorecardTrace` of a closed scorecard: every applied action in apply order (`action_not_available` while open, or when the server keeps no archive) |
 
 ```json schema=OpenRequest
 {"agent": "my-agent-v3", "track": "open", "tier": "public_eval", "n_worlds": 40}
 ```
 
-Public-eval and private scorecards are fresh draws from a committed pool, never reused:
+Public-train scorecards can name explicit `world_ids` or request `n_worlds`. Selection behaviour differs by software version. For a reproducible comparison, submit the same explicit IDs to each agent and record the store digest. The development runtime supports seeded, stratified selection; the current public checkout does not. A seed is not valid with explicit IDs or on evaluation tiers.
+
+Public-eval and private scorecards draw fresh worlds. Operators are responsible for publishing the pool commitment before use. Runtime defaults are:
 
 - 20% are null worlds, and the rest are spread evenly over difficulty tiers.
 - Public-eval scorecards are capped at 5 per key per day, and private scorecards at 3 per key in total.
 - Eval tiers give no score feedback until the scorecard is closed.
-- The hosted service defaults to at least 40 worlds on both eval tiers. Smaller requests
+- The server defaults to at least 40 worlds on both eval tiers. Smaller requests
   receive `invalid_payload` before consuming worlds or quota. Public training permits one
   world. This provisional bound reduces aggregate exposure; it is not a statistical
   equivalence or privacy guarantee. Operators can set `onc-agi serve --min-eval-worlds`;
@@ -208,7 +214,7 @@ service cannot resume operations. Open scorecards expire after `--ttl-hours` (de
 24; zero disables expiry), with unsubmitted worlds scored as empty. Only actions through
 `ScorecardService.act()` are persisted; direct episode mutation is not recoverable.
 
-The server keeps open scorecards, their traces and every closed scorecard on disk, so a restart resumes open scorecards exactly where they were. A scorecard left open longer than the server's time limit (24 hours by default) is closed automatically, and its unsubmitted worlds score as empty submissions. After that, actions are refused with `scorecard_closed` and the result can be fetched with `GET /v1/scorecards/{sid}`. The closed record carries the same exposure as the close response, so eval scorecards stay aggregate-only.
+After expiry or explicit closure, actions receive `scorecard_closed`. The owner can fetch the saved result with `GET /v1/scorecards/{sid}`; hidden-tier records retain aggregate-only exposure.
 
 ## Scorecard
 
@@ -216,9 +222,9 @@ A scorecard reports the following:
 
 - **Discovery Score**: `Find × max(0, Restraint)`. This is the headline.
 - **Find**: chance-normalised recovery on signal worlds.
-- **Restraint**: Youden's J between empty submissions on null worlds and empty submissions on signal worlds.
+- **Restraint**: restraint on null worlds minus abstention on signal worlds, with sequential efficiency applied to the null-world term. Neutral-only lists also count as abstention.
 - The **unfloored** statistical estimand, with a stratified bootstrap interval.
-- **Strict** score: exact recovery only.
+- **Strict** score: exact credit, including accepted equivalents when a part is not exactly recoverable.
 - **Leak rate**: the share of worlds that listed a post-outcome feature.
 - **Data cost**: mean spend.
 - A summary per tier.
@@ -256,7 +262,7 @@ Undefined metrics are `null`, never 0. For example, a scorecard without null wor
 
 ## Trace events
 
-Every action applied through the server is recorded with its exact payload, so an episode can be replayed and checked byte for byte (`onc-agi replay`, `onc-agi conformance`).
+Every action applied through the server is recorded with its exact payload, so an episode can be replayed and checked byte for byte (`onc-agi replay`, `onc-agi conformance`). Once a scorecard is closed, its owner can fetch the trace. It holds only what the owner sent and the digests of what they received, so every tier serves it. `request_sha256` is the SHA-256 of the canonical action JSON. `response_sha256` digests the episode state the action produced, so only the server, or a replay against the world bundle, can compute it.
 
 ```json schema=TraceEvent
 {
@@ -273,6 +279,12 @@ Every action applied through the server is recorded with its exact payload, so a
 }
 ```
 
+```json schema=ScorecardTrace
+{"interface_version": "1.0", "scorecard_id": "sc-7f3a", "events": []}
+```
+
+`onc-agi play --record DIR` and `onc-agi standard --record DIR` save the trace beside the agent's recording and the scorecard. `onc-agi replay --record DIR --store STORE` checks the run against the world bundles, which needs the answer keys. It replays every traced action, recomputes the whole scorecard and checks that the recording matches the trace. With `--url`, it also requires the local trace and scorecard to equal the server's copies; without it, the run is reported as consistent rather than verified.
+
 ## Conformance
 
 `onc-agi conformance --url <server>` plays the fixture worlds through a server and checks the following:
@@ -287,4 +299,4 @@ Every action applied through the server is recorded with its exact payload, so a
 - the closed scorecard can be fetched and equals the close response;
 - in-process only: a server rebuilt on the same ledger and archive resumes an open scorecard mid-episode.
 
-A custom harness that passes conformance is scored identically to the standard one.
+Conformance verifies interface behaviour. A custom harness remains an open-track result; comparable evaluation also requires the [evaluation protocol](evaluation-protocol.md).

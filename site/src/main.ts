@@ -6,8 +6,9 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 
-import { Landscape } from "./lib/landscape";
 import { rollTo } from "./lib/roll";
+import { opening as filmOpening, stage as filmStage, type Stage } from "./lib/film";
+import { tryOne } from "./lib/try";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -32,23 +33,36 @@ if (!reduced) {
 }
 const scrollToY = (y: number, duration = 1.3) => (lenis ? lenis.scrollTo(y, { duration }) : window.scrollTo({ top: y }));
 
-/* ------------------------------------------------------------------ opening band */
+/* ------------------------------------------------------------------ films
+   The 3D scenes are rendered at build time and played as video, so every visitor gets the same
+   full-quality frames, with or without a capable GPU. */
 
-const band = new Landscape($<HTMLCanvasElement>('[data-field="band"]'), {
-  density: mobile ? 0.35 : 0.7,
-  animate: !reduced,
-  yMax: 8.4,
-  causePeak: 7.6,
-  fill: 1.8,
-});
-band.labels = !mobile;
-band.causeLabel = "a planted cause clears the line";
-if (reduced) band.set({ cause: 1, breath: 0 });
-else {
-  const rise = { cause: 0 };
-  gsap.to(rise, { cause: 1, duration: 2.4, delay: 0.5, ease: "expo.out", onUpdate: () => band.set({ cause: rise.cause }) });
-  gsap.from(".opening__text > *", { y: 22, opacity: 0, duration: 1.2, stagger: 0.08, ease: "expo.out" });
+let stage3d: Stage | null = null;
+let shown: [string, number] = ["build", 0];
+const hero = document.querySelector<HTMLElement>("[data-scene-hero]");
+if (hero) {
+  filmOpening(hero, reduced);
+  root.classList.add("has-hero-3d");
 }
+// the journey's films load only as the journey approaches, so the opening loads alone
+if (!mobile) {
+  const near = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0].isIntersecting) return;
+      near.disconnect();
+      stage3d = filmStage($(".panes"), reduced);
+      stage3d.preload();
+      root.classList.add("has-3d");
+      stage3d.show(...shown);
+    },
+    { rootMargin: "100% 0px" },
+  );
+  near.observe($(".journey"));
+}
+
+/* ------------------------------------------------------------------ opening */
+
+if (!reduced) gsap.from(".opening__text > :not(.scene-tag)", { y: 18, opacity: 0, duration: 1, stagger: 0.08, ease: "power2.out" });
 
 /* ------------------------------------------------------------------ the journey replay */
 
@@ -80,6 +94,8 @@ function show(pane: string, state: number, phase: number): void {
     li.classList.toggle("is-past", i < phase);
   });
   const el = panes.get(pane);
+  shown = [pane, state];
+  stage3d?.show(pane, state);
   if (!mobile && el) {
     panes.forEach((p, name) => p.classList.toggle("is-active", name === pane));
     el.dataset.state = String(state);
@@ -100,34 +116,25 @@ function show(pane: string, state: number, phase: number): void {
 const tween = (targets: gsap.TweenTarget, vars: gsap.TweenVars) =>
   reduced ? gsap.set(targets, { ...vars, duration: 0 }) : gsap.to(targets, vars);
 
-const SCRAMBLE = "bcdfghjklmnpqrstvwxz0123456789";
-function scramble(el: SVGTextElement): void {
-  const target = el.dataset.col ?? el.textContent ?? "";
-  if (reduced) return;
-  let n = 0;
-  const id = window.setInterval(() => {
-    n++;
-    el.textContent = [...target].map((c, i) => (i < n / 2 ? c : SCRAMBLE[Math.floor(Math.random() * SCRAMBLE.length)])).join("");
-    if (n > target.length * 2) {
-      window.clearInterval(id);
-      el.textContent = target;
-    }
-  }, 45);
-}
-
 let actLabels: SVGTextElement[][] | undefined;
+let actPoints: Map<string, {y: number; cls: string; title: string}>[] | undefined;
 const enter: Record<string, (el: HTMLElement, state: number, first: boolean) => void> = {
-  build(el, state, first) {
+  build(el, _state, first) {
     if (first && !reduced) gsap.from($$(".r", el), { opacity: 0, x: -6, duration: 0.5, stagger: 0.012, ease: "expo.out" });
-    if (state === 3) $$<SVGTextElement>(".colhead", el).forEach(scramble);
   },
-  certify(el, _state, first) {
-    if (!first || reduced) return;
-    $$<SVGPolylineElement>(".ci-line", el).forEach((line, i) => {
-      const len = line.getTotalLength();
-      gsap.fromTo(line, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.6, delay: i * 0.35, ease: "power2.out" });
-    });
-    gsap.from($$(".ci-band", el), { opacity: 0, duration: 1.2, delay: 0.6, stagger: 0.3 });
+  certify(el, state, first) {
+    if (reduced) return;
+    if (first)
+      $$<SVGGeometryElement>(".recovery-plot .ci-line", el).forEach((line, i) => {
+        const len = line.getTotalLength();
+        gsap.fromTo(line, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.2, delay: (i % 3) * 0.18, ease: "power2.out" });
+      });
+    // the no-signal cohorts stack up first, then the driver's simulations land beyond the bar
+    if (state === 1 && !el.dataset.stacked) {
+      el.dataset.stacked = "1";
+      gsap.from($$(".null-stack rect", el), { opacity: 0, y: -24, duration: 0.5, stagger: { amount: 1.1, from: "start" }, ease: "power2.out" });
+      gsap.from($$(".driver-stack rect", el), { opacity: 0, y: -24, duration: 0.5, delay: 1.2, stagger: { amount: 0.7 }, ease: "power2.out" });
+    }
   },
   receive(el, _state, first) {
     if (first && !reduced) gsap.from($$(".worldcard > *", el), { opacity: 0, y: 8, duration: 0.6, stagger: 0.06, ease: "expo.out" });
@@ -137,16 +144,20 @@ const enter: Record<string, (el: HTMLElement, state: number, first: boolean) => 
     const frames = $$<SVGGElement>(".act-frame", el);
     const live = frames[0];
     const k = Math.min(state, frames.length - 1);
-    const target = frames[k];
+    // Preserve original coordinates before the first frame becomes the live animation surface.
+    actPoints ??= frames.map(frame => new Map($$<SVGRectElement>(".pt", frame).map(point => [point.dataset.f!, {y: Number(point.getAttribute("y")), cls: point.getAttribute("class")!, title: point.querySelector("title")?.textContent ?? ""}])));
     frames.forEach((f, i) => f.classList.toggle("is-shown", i === 0));
     // each frame's labels, captured once before the live frame is first rewritten
-    actLabels ??= frames.map((f) => $$<SVGTextElement>(".pt-label, .frame-tag", f).map((t) => t.cloneNode(true) as SVGTextElement));
+    actLabels ??= frames.map((f) => $$<SVGTextElement>(".pt-label, .frame-tag, .pt-ghost", f).map((t) => t.cloneNode(true) as SVGTextElement));
     $$<SVGRectElement>(".pt", live).forEach((pt) => {
-      const twin = $<SVGRectElement>(`.pt[data-f="${pt.dataset.f}"]`, target);
-      tween(pt, { attr: { y: Number(twin.getAttribute("y")) }, duration: 1.1, ease: "expo.out" });
-      pt.setAttribute("class", twin.getAttribute("class") ?? "pt");
+      const target = actPoints![k].get(pt.dataset.f!)!;
+      gsap.killTweensOf(pt);
+      tween(pt, { attr: { y: target.y }, duration: 0.8, ease: "power2.inOut" });
+      pt.setAttribute("class", target.cls);
+      const title = pt.querySelector("title");
+      if (title) title.textContent = target.title;
     });
-    $$<SVGTextElement>(".pt-label, .frame-tag", live).forEach((t) => t.remove());
+    $$<SVGTextElement>(".pt-label, .frame-tag, .pt-ghost", live).forEach((t) => t.remove());
     actLabels[k].forEach((t) => {
       const copy = t.cloneNode(true) as SVGTextElement;
       live.append(copy);
@@ -155,15 +166,8 @@ const enter: Record<string, (el: HTMLElement, state: number, first: boolean) => 
   },
   score(el, state) {
     const visible = [3, 5, 7, 8][state] ?? 8;
-    $$<HTMLElement>("[data-k]", el).forEach((row) => {
-      const k = Number(row.dataset.k);
-      const on = k < visible;
-      if (on && !row.classList.contains("is-on") && !reduced) gsap.from(row, { opacity: 0, y: 10, duration: 0.6, ease: "expo.out", delay: (k % 3) * 0.12 });
-      row.classList.toggle("is-on", on);
-    });
-  },
-  across(el, _state, first) {
-    if (first && !reduced) gsap.from($$("td", el), { opacity: 0, scale: 0.92, duration: 0.45, stagger: 0.035, ease: "expo.out" });
+    // gates still to come stay faintly visible; CSS brightens each one as its beat arrives
+    $$<HTMLElement>("[data-k]", el).forEach((row) => row.classList.toggle("is-on", Number(row.dataset.k) < visible));
   },
 };
 
@@ -180,11 +184,16 @@ beats.forEach((beat) =>
     onToggle: (self) => self.isActive && activate(beat),
   }),
 );
-activate(beats[0]);
+// Above the journey the stage always rests on its first state, however the reader arrived.
+ScrollTrigger.create({ trigger: ".journey__column", start: mobile ? "top 72%" : "top 58%", onLeaveBack: () => activate(beats[0]) });
+const activateAtScroll = () => activate([...beats].reverse().find(beat => beat.getBoundingClientRect().top <= innerHeight * (mobile ? 0.72 : 0.58)) ?? beats[0]);
+activateAtScroll();
+// a jump (anchor, presenter, scrollbar drag) can skip the toggles; settle on the true beat once scrolling ends
+ScrollTrigger.addEventListener("scrollEnd", activateAtScroll);
 
 // Inline (phone) reading: every figure sits after its text in its final state and plays its
 // entrance once on arrival; the act figure replays the episode 30 -> 60 -> 90 patients.
-const FINAL: Record<string, number> = { build: 3, certify: 1, receive: 0, act: 0, score: 3, across: 1 };
+const FINAL: Record<string, number> = { build: 3, certify: 1, receive: 0, act: 0, score: 3 };
 if (mobile)
   panes.forEach((el, name) => {
     el.dataset.state = String(FINAL[name] ?? 0);
@@ -196,6 +205,11 @@ if (mobile)
     if (reduced) play();
     else ScrollTrigger.create({ trigger: el, start: "top 80%", once: true, onEnter: play });
   });
+
+/* ------------------------------------------------------------------ try one */
+
+const tryRoot = document.querySelector<HTMLElement>("#try");
+if (tryRoot) tryOne(tryRoot);
 
 /* ------------------------------------------------------------------ copy */
 
@@ -243,8 +257,9 @@ document.addEventListener("click", (e) => {
 const stops: { label: string; el: HTMLElement; offset: number }[] = [
   { label: "The question", el: $(".opening"), offset: 0 },
   { label: "Why this task", el: $("#task"), offset: 0.12 },
+  { label: "Try one", el: $("#try"), offset: 0.08 },
   ...beats.map((b, i) => ({ label: `Journey ${i + 1}/${beats.length}`, el: b, offset: mobile ? 0.6 : 0.42 })),
-  { label: "What it measures", el: $("#measures"), offset: 0.08 },
+  { label: "What makes it hard", el: $("#measures"), offset: 0.08 },
   { label: "Run your agent", el: $("#run"), offset: 0.08 },
 ];
 const presenter = $("[data-presenter]");
@@ -279,4 +294,13 @@ document.addEventListener("keydown", (e) => {
   } else if (e.key === "Escape") togglePresenter(false);
 });
 
-document.fonts?.ready.then(() => ScrollTrigger.refresh());
+document.fonts?.ready.then(() => {
+  ScrollTrigger.refresh();
+  // Resolve deep links after fonts and the scroll layout establish their final sizes.
+  const target = location.hash.startsWith("#j-") ? document.getElementById(location.hash.slice(1)) : null;
+  if (target) {
+    lenis?.resize();
+    window.scrollTo({top: target.getBoundingClientRect().top + scrollY - 64, behavior: "instant"});
+  }
+  activateAtScroll();
+});

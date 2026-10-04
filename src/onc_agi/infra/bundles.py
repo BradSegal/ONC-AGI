@@ -8,15 +8,19 @@ Layout (one directory per world under ``<root>/<tier>/<world_id>/``)::
     queues.json       recruitment order per stratum
     answer_key.json   present only for public-train worlds
 
-Eval and private answer keys live in a separate ``keys`` directory that is never
-shipped with bundles.
+A public-train pack also carries its world-set manifests (``<root>/manifests/*.json``, or
+``<root>/manifest.json``), which list each world's source cohort, role and mode. Eval and
+private answer keys, and their full manifests, live in a separate ``keys`` directory that is
+never shipped with bundles.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -103,6 +107,7 @@ class FileWorldStore:
         self.root = root
         self.keys_dir = keys_dir
         self._cache: dict[str, WorldData] = {}
+        self._manifest: dict[str, dict[str, Any]] | None = None
 
     def _dir(self, world_id: str) -> Path:
         for tier in Tier:
@@ -134,3 +139,33 @@ class FileWorldStore:
             if private.exists():
                 return AnswerKey.model_validate_json(private.read_text())
         raise ArenaError(ErrorCode.UNKNOWN_WORLD, f"no answer key available for {world_id!r}")
+
+    def manifest_entry(self, world_id: str) -> dict[str, Any] | None:
+        """The world's entry in the store's manifests (source, role, mode), if a manifest lists it."""
+        if self._manifest is None:
+            paths = [*sorted((self.root / "manifests").glob("*.json")), self.root / "manifest.json"]
+            self._manifest = {
+                str(w["world_id"]): w
+                for path in paths
+                if path.is_file()
+                for w in json.loads(path.read_text()).get("worlds", ())
+            }
+        return self._manifest.get(world_id)
+
+
+def world_id_list(value: str) -> tuple[str, ...]:
+    """World ids from a comma-separated string, or from an id-list file (one id per line).
+
+    A value with a comma is always a list, never a path, so a long list is not looked up on disk.
+    In a file, ``#`` starts a comment and CRLF line endings are accepted.
+    """
+    if "," in value:
+        return tuple(w.strip() for w in value.split(",") if w.strip())
+    # os.path.isfile is False (not an error) for names the filesystem rejects, such as overlong ones
+    return parse_id_list(Path(value).read_text() if os.path.isfile(value) else value)
+
+
+def parse_id_list(text: str) -> tuple[str, ...]:
+    """The ids of an id-list file's text: one per line, ``#`` comments and blank lines ignored."""
+    ids = (line.split("#", 1)[0].strip() for line in text.splitlines())
+    return tuple(w for w in ids if w)

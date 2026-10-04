@@ -18,6 +18,7 @@ always do.
 
 from __future__ import annotations
 
+import sys
 import tempfile
 import threading
 from collections.abc import Callable, Sequence
@@ -27,7 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from onc_agi.adapters.client import view_from_observation
+from onc_agi.adapters.client import ArenaClient, view_from_observation
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.ports import RecordingHeader, RecordingSink, RunRecord, WorldStore
 from onc_agi.core.schema import (
@@ -39,8 +40,10 @@ from onc_agi.core.schema import (
     Scorecard,
     Submit,
     Tier,
+    TraceEvent,
     WorldCard,
 )
+from onc_agi.infra.archive import FileScorecardArchive
 from onc_agi.infra.ledger import JsonLedger
 from onc_agi.services.kit import MAX_STEPS, Agent, EndEpisode, Usage
 from onc_agi.services.scorecards import ScorecardService
@@ -62,6 +65,7 @@ class Arena(Protocol):
         mode: Mode | None = None,
         world_ids: Sequence[str] | None = None,
         tags: Sequence[str] = (),
+        seed: int | None = None,
     ) -> tuple[str, list[WorldCard]]: ...
 
     def act(self, sid: str, wid: str, action: Action) -> Observation: ...
@@ -91,11 +95,23 @@ class LocalArena:
 
     @classmethod
     def over_store(cls, store: WorldStore) -> LocalArena:
-        """A private service with a throwaway ledger (public-train play needs no shared state)."""
+        """A private service with a throwaway ledger and archive (public-train play needs no shared
+        state); the archive keeps the server trace, so in-process runs verify by replay too."""
         tmp = tempfile.TemporaryDirectory(prefix="arena-local-")
-        arena = cls(ScorecardService(store, JsonLedger(Path(tmp.name) / "ledger.json")))
+        root = Path(tmp.name)
+        service = ScorecardService(
+            store, JsonLedger(root / "ledger.json"), archive=FileScorecardArchive(root)
+        )
+        arena = cls(service)
         arena._tmp = tmp  # removed with the arena
         return arena
+
+    def shutdown(self) -> None:
+        """Stop the service and remove a throwaway ledger and archive."""
+        self.service.shutdown()
+        if self._tmp is not None:
+            self._tmp.cleanup()
+            self._tmp = None
 
     def open(
         self,
@@ -107,6 +123,7 @@ class LocalArena:
         mode: Mode | None = None,
         world_ids: Sequence[str] | None = None,
         tags: Sequence[str] = (),
+        seed: int | None = None,
     ) -> tuple[str, list[WorldCard]]:
         sid, cards = self.service.open(
             self.api_key,
@@ -117,6 +134,7 @@ class LocalArena:
             tags=tuple(tags),
             mode=mode,
             world_ids=tuple(world_ids) if world_ids is not None else None,
+            seed=seed,
         )
         return sid, list(cards)
 
@@ -143,6 +161,40 @@ class LocalArena:
 
     def worlds(self, tier: Tier = Tier.PUBLIC_TRAIN) -> list[WorldCard]:
         return list(self.service.list_worlds(tier))
+
+    def scorecard(self, sid: str) -> Scorecard:
+        return self.service.scorecard(sid, api_key=self.api_key)
+
+    def trace(self, sid: str) -> list[TraceEvent]:
+        """The server trace of a closed scorecard (as ``ArenaClient.trace`` returns it over HTTP)."""
+        return list(self.service.trace(sid, api_key=self.api_key))
+
+
+def server_trace(arena: LocalArena | ArenaClient, scorecard_id: str) -> list[TraceEvent] | None:
+    """The server trace of a closed scorecard, or ``None`` (said on stderr) when the arena keeps no
+    trace or predates the trace route: the run is then recorded but cannot be verified by replay."""
+    try:
+        return list(arena.trace(scorecard_id))
+    except ArenaError as exc:
+        print(
+            f"no server trace for {scorecard_id} ({exc}): the run is not verifiable by replay",
+            file=sys.stderr,
+        )
+        return None
+
+
+def server_copies(
+    arena: LocalArena | ArenaClient, scorecard_id: str
+) -> tuple[list[TraceEvent], Scorecard] | None:
+    """The server's own trace and closed scorecard, to verify a run against (``None`` if unavailable)."""
+    trace = server_trace(arena, scorecard_id)
+    if trace is None:
+        return None
+    try:
+        return trace, arena.scorecard(scorecard_id)
+    except ArenaError as exc:
+        print(f"no server scorecard for {scorecard_id} ({exc})", file=sys.stderr)
+        return None
 
 
 @dataclass(frozen=True)
@@ -268,20 +320,27 @@ def run_swarm(
     budget_usd: float | None = None,
     model: str | None = None,
     harness: str | None = None,
+    seed: int | None = None,
 ) -> SwarmResult:
     """Open one scorecard, play its worlds on ``workers`` threads, close it and return the result.
 
     ``model`` and ``harness`` label the scorecard; tokens and cost are the agents' own reports.
     In-process they are recorded by the service; over HTTP the server's record carries none of
     them (its close takes no client claims), so they annotate the returned copy only.
+    ``seed`` selects the stratified sample of ``n_worlds`` public-train worlds (arena default 0).
     """
     if workers < 1:
         raise ValueError("workers must be at least 1")
     if budget_usd is not None and budget_usd < 0:
         raise ValueError("budget_usd must be non-negative")
-    sid, cards = arena.open(
-        agent_name, tier, n_worlds, track=track, mode=mode, world_ids=world_ids, tags=tags
-    )
+    if seed is None:  # arenas written before seeded draws take no seed
+        sid, cards = arena.open(
+            agent_name, tier, n_worlds, track=track, mode=mode, world_ids=world_ids, tags=tags
+        )
+    else:
+        sid, cards = arena.open(
+            agent_name, tier, n_worlds, track=track, mode=mode, world_ids=world_ids, tags=tags, seed=seed
+        )
     if recorder is not None:
         recorder.header(
             RecordingHeader(

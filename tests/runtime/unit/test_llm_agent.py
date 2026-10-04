@@ -355,3 +355,14 @@ def test_a_missing_key_fails_when_the_agent_is_built(monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("ABSENT_LLM_KEY", raising=False)
     with pytest.raises(ProfileError, match="ABSENT_LLM_KEY"):
         LLMToolAgent(Profile(name="p", base_url="http://x", model="m", api_key_env="ABSENT_LLM_KEY"))
+
+
+def test_provider_errors_never_echo_the_key_or_bearer_tokens(profile: Profile) -> None:
+    body = (
+        "bad key sk-test in Authorization: Bearer sk-test; also sk-live-ABCDEFGH1234 and Bearer abcdefghij123"
+    )
+    with pytest.raises(RuntimeError) as err:
+        _client(FakeModel(httpx.Response(401, text=body)), profile, []).complete([], [])
+    message = str(err.value)
+    assert "[redacted]" in message
+    assert not any(s in message for s in ("sk-test", "sk-live-ABCDEFGH1234", "abcdefghij123"))

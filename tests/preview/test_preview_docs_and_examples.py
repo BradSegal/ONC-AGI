@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-DOCS = sorted((ROOT / "docs").glob("*.md"))
-BLOCK = re.compile(r"```python\n(.*?)```", re.S)
+DOCS = [*sorted((ROOT / "docs").rglob("*.md")), ROOT / "tools" / "FIXTURES.md"]
+BLOCK = re.compile(r"```python(?: run)?\n(.*?)```", re.S)
 
 
 @pytest.mark.parametrize("doc", [d for d in DOCS if BLOCK.search(d.read_text())], ids=lambda d: d.name)
@@ -50,10 +50,10 @@ def test_http_template_matches_the_in_process_scorer() -> None:
     assert scorecard.n_worlds == 20 and scorecard.discovery_score is not None
 
 
-def test_llm_template_runs_offline() -> None:
-    import llm_agent
+def test_scripted_tool_loop_runs_offline() -> None:
+    import scripted_tool_loop
 
-    assert llm_agent.main() == [1.0, 1.0, 0.0]
+    assert scripted_tool_loop.main() == [1.0, 1.0, 0.0]
 
 
 def test_smoke_command_from_a_foreign_directory(tmp_path: Path) -> None:

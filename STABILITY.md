@@ -1,42 +1,28 @@
-# Stability
+# Stability and release status
 
-**Release:** `1.0.0-rc3`. Interface `1.0`, scorer `scorer-1.0` (labels carry a source digest), engine `engine-1.0`.
+The checkout exposes interface `1.0`, engine `engine-1.0` and scorer `scorer-1.0`; runtime labels include source digests. Pin the commit and world-store digest when recording a result.
 
-## Release plan
-
-| Release | Contents | When |
-|---|---|---|
-| `1.0.0-rc1` | Interface specification, runtime, toy fixtures, template agents, conformance | 2026-10-03 |
-| `1.0.0-rc2` | Security and correctness fixes to the hosted scorecards, matched chance and sequential agents | 2026-10-03 |
-| `1.0.0-rc3` (this; superseded) | 2,489 public-train benchmark worlds (8 unsolvable), first-pass results (withdrawn), the agents kit and the website | 2026-10-04 |
-| `1.0.0-rc*` | Interface fixes from collaborator feedback (additive only) | Until the feedback freeze |
-| `1.0.0` | Frozen interface | **Feedback freeze: 2026-10-03 23:00 BST** |
-| Evaluation release | Hosted evaluation server for the hidden tiers | After independent assurance |
-
-## What you can rely on
+## Current boundaries
 
 | Surface | Status |
 |---|---|
-| Payload models in `onc_agi.core.schema`, `schemas/*.schema.json` | **Release candidate.** Only additive changes until 1.0.0 |
-| HTTP endpoints and status codes (`schemas/openapi.json`) | **Release candidate** |
-| Error codes | **Release candidate** |
-| Episode semantics (reset, recruit, assay, submit, idempotency, budget) | **Release candidate** |
-| Scoring semantics (`docs/scoring.md`) | **Release candidate.** Credit uses maximum matching |
-| `Agent`, `PipelineAgent`, `evaluate`, `run_episode`, `ArenaClient` | **Release candidate** |
-| Baseline and cheater agents | **Stable names.** Internals may be tuned |
-| Inspect standard-track task (`onc_agi.adapters.inspect_task`) | **Preview** |
-| Alignment diagnostics | **Preview.** Values may be recalibrated |
-| Toy fixture worlds | **Fixtures.** They may be extended. They are not a benchmark |
-| Public-train world sets (release downloads) | **Versioned.** A set never changes once released; new versions are new downloads |
+| Runtime, schemas, HTTP API and Agent kit | Release candidate; runnable locally |
+| Bundled worlds | 20 synthetic contract fixtures; suitable for software checks |
+| `1.0.0rc3` benchmark packs | Usable through the `1.0.0rc4` certified id lists: 2,465 of 2,489 worlds pass the solvability screen; 24 excluded |
+| First-pass benchmark results | Withdrawn after selecting 120 worlds from one cohort source |
+| Inspect standard track and alignment diagnostics | Preview |
+| Hosted public-eval and private tiers | Supported by server code; no hosted evaluation release announced here |
 
-## Change policy
+The [historical packs](CHANGELOG.md#historical-rc3-packs) remain available for reproduction. Corrections require a new pack version; released archives are not overwritten. `--n` draws a seeded sample stratified by source, family and mode (`--seed`); `onc-agi subset` writes the id list of any named sample.
 
-A MINOR interface change adds optional fields only. A MAJOR change removes, renames or re-types a field, or changes a scoring semantic. Every change is listed in [CHANGELOG.md](CHANGELOG.md).
+## Compatibility
 
-## Known limitations in this release
+A minor interface change adds optional fields; a major change removes, renames or re-types a field, or changes scoring semantics. Changes are recorded in [CHANGELOG.md](CHANGELOG.md). Strict clients must recognise the survival fields `time` and `horizon_days` before opening survival worlds. Unknown request fields are rejected.
 
-- **Survival worlds need rc3 clients.** Their `time` and `horizon_days` fields are additive; a client that rejects unknown fields must update.
-- **Every observation resends the full revealed state.** This is simple and resumable, but large for wide worlds.
-- **Integrity against public-source re-identification is not yet certified** for the hidden tiers; the public-train sets are published with answers, so it does not affect them.
-- **Integrity claims for sequential mode and hidden-variable mechanics** hold only on the no-network standard track. Open-track results for them are labelled unverified.
-- **The local server accepts any API key.** Hosted evaluation servers issue keys.
+The development runtime may contain additions absent from this checkout, including seeded sampling. Use the checked-in [interface](docs/interface.md), schemas and CLI help for this version.
+
+## Limitations
+
+Observations resend the full revealed state, which can be large. Public-train answer keys are distributed for development and must not enter agent observations. Protection against matching derived records back to public source data has not been certified for hidden-tier evaluation. A no-network sandbox limits access; it does not by itself establish that protection.
+
+The local server can run without issued keys for public training. Hidden-tier serving requires issued keys unless an operator explicitly enables the development override. The [evaluation protocol](docs/evaluation-protocol.md) separates server controls from requirements for a comparable result.

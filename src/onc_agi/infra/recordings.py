@@ -1,18 +1,30 @@
-"""JSONL agent recordings: one scorecard header, the agents' events, one run record per world.
+"""Run records on disk: the agent's JSONL recording, the server trace and the closed scorecard.
 
-The ARC-AGI-3 ``Recorder`` counterpart, generalising the live workspace's transcript sidecar::
+Both tracks, the open track (``onc-agi play``) and the standard track (the Inspect task), write the
+same three files into a run directory::
+
+    recording.jsonl   the agent's own account: one scorecard header, its events, one run per world
+    trace.jsonl       the server trace: one TraceEvent per applied action, with request and
+                      response digests (``GET /v1/scorecards/{sid}/trace``)
+    scorecard.json    the closed scorecard
+
+The recording (the ARC-AGI-3 ``Recorder`` counterpart)::
 
     {"kind": "scorecard", "scorecard_id": "sc-...", "agent": ..., "world_ids": [...], ...}
     {"scorecard_id": "sc-...", "world_id": "w", "turn": 0, "kind": "assistant", "content": ..., "ts": ...}
     {"kind": "run", "world_id": "w", "ranking": [...], "submitted": true, "spent": 0.0, ...}
 
-One file holds one scorecard. Worlds are played on several threads, so every write
-happens under one lock and is flushed at once: a crash loses at most the line in flight.
+Event kinds are ``assistant``, ``reasoning``, ``tool_call``, ``tool_result``, ``action`` (the
+exact action JSON sent to the arena; ``error`` when refused) and ``note``. One file holds one
+scorecard. Worlds are played on several threads, so every write happens under one lock and is
+flushed at once: a crash loses at most the line in flight. Replaying the trace against the world
+bundles verifies the run (:func:`onc_agi.services.replay.verify_run`).
 """
 
 from __future__ import annotations
 
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,8 +34,11 @@ from typing import Annotated, TextIO
 from pydantic import Field, TypeAdapter
 
 from onc_agi.core.ports import RecordingEvent, RecordingHeader, RecordingKind, RunRecord
+from onc_agi.core.schema import Scorecard, TraceEvent
 
 RECORDING_FILE = "recording.jsonl"
+TRACE_FILE = "trace.jsonl"
+SCORECARD_FILE = "scorecard.json"
 
 _Line = Annotated[RecordingEvent | RunRecord | RecordingHeader, Field(discriminator="kind")]
 _LINE: TypeAdapter[RecordingEvent | RunRecord | RecordingHeader] = TypeAdapter(_Line)
@@ -106,6 +121,12 @@ class RecordingWriter:
                 record = record.model_copy(update={"scorecard_id": self.scorecard_id})
             self._write(record.model_dump_json())
 
+    def append(self, event: RecordingEvent) -> None:
+        """Write an event made elsewhere (a converted transcript) exactly as given."""
+        with self._lock:
+            self._turns[event.world_id] = max(self._turns.get(event.world_id, 0), event.turn + 1)
+            self._write(event.model_dump_json())
+
 
 @dataclass(frozen=True)
 class Recording:
@@ -144,3 +165,44 @@ def read_recording(path: Path) -> Recording:
         order = {w: i for i, w in enumerate(header.world_ids)}
         runs.sort(key=lambda r: order.get(r.world_id, len(order)))
     return Recording(header, tuple(events), tuple(runs))
+
+
+def write_trace(path: Path, events: Sequence[TraceEvent]) -> None:
+    """Write a server trace (refuses an existing file, like a recording)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as handle:
+        handle.writelines(event.model_dump_json() + "\n" for event in events)
+
+
+def read_trace(path: Path) -> tuple[TraceEvent, ...]:
+    file = path / TRACE_FILE if path.is_dir() else path
+    return tuple(
+        TraceEvent.model_validate_json(line) for line in file.read_text().splitlines() if line.strip()
+    )
+
+
+@dataclass(frozen=True)
+class RunFiles:
+    """The three files of a run directory (the trace and scorecard when present)."""
+
+    recording: Recording
+    trace: tuple[TraceEvent, ...] | None
+    scorecard: Scorecard | None
+
+
+def save_run(directory: Path, scorecard: Scorecard, trace: Sequence[TraceEvent] | None) -> None:
+    """Complete a run directory beside its recording: the closed scorecard and the server trace
+    (``None`` when the arena keeps none, so the run cannot be verified by replay)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / SCORECARD_FILE).write_text(scorecard.model_dump_json(indent=1))
+    if trace is not None:
+        write_trace(directory / TRACE_FILE, trace)
+
+
+def read_run(directory: Path) -> RunFiles:
+    trace, card = directory / TRACE_FILE, directory / SCORECARD_FILE
+    return RunFiles(
+        read_recording(directory),
+        read_trace(trace) if trace.exists() else None,
+        Scorecard.model_validate_json(card.read_text()) if card.exists() else None,
+    )

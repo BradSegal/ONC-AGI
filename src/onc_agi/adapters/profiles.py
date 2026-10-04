@@ -132,6 +132,19 @@ class Profile:
         os.environ[f"{self.env_prefix}_API_KEY"] = self.api_key() or "none"
         return f"openai-api/{self.name}/{self.model}"
 
+    def inspect_config(self) -> dict[str, Any]:
+        """Inspect ``GenerateConfig`` fields for the standard track (``inspect_ai.eval(**config)``):
+        the chat-completions parameters, with provider fields passed through verbatim, so both
+        tracks send the same request parameters.
+
+        ``extra_headers`` are left out: Inspect writes its generate config into the log, and a
+        header value may be a credential. The standard track sends no profile headers.
+        """
+        config = dict(self.generate)
+        if self.extra_body:
+            config["extra_body"] = dict(self.extra_body)
+        return config
+
 
 def parse_override(item: str) -> tuple[str, Any]:
     if "=" not in item:

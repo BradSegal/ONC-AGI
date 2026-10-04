@@ -1,94 +1,38 @@
 # ONC-AGI
 
-**ARC-style biomarker discovery worlds.** Each world is a cohort with an outcome and a hidden, planted mechanism (or none). An agent must find the drivers rather than their correlates, and must say "nothing" when nothing can be found. One deterministic score, the Discovery Score, ranks agents against an oracle, standard baselines and cheating strategies, in full-access and sequential-acquisition modes.
+ONC-AGI tests whether an agent can recover a planted mechanism from cohort data—and abstain when the data support no discovery. Worlds retain the correlation structure of real measurements but replace the outcome with one generated from a known mechanism. This makes recovery assessable without treating a predictive association as evidence of a real biomarker.
 
-> **Status: release candidate `1.0.0-rc3`, superseded.** The interface specification, the engine, the scorer, the Agent kit, the HTTP server and the conformance suite are current. The rc3 world sets remain downloadable for reference, but two defects were found after release:
-> - 8 of the 2,489 public-train worlds have answer keys that no solver can reach, because of a world-construction defect;
-> - the first-pass results were scored on the first 120 worlds of each core download, which all came from one cohort source (METABRIC). Those results are withdrawn.
->
-> Public-train worlds publish their answer keys, as ARC's training tasks do: use them to develop agents and to run offline evaluations.
->
-> ONC-AGI is inspired by [ARC-AGI](https://arcprize.org/) and follows its conventions. It is not affiliated with the ARC Prize Foundation. It measures discovery competence on planted mechanisms in real correlation structure. It does not validate real biomarkers.
+An agent returns an ordered feature list or an empty list. It either receives the full dataset or chooses which patients and measurements to acquire within a budget. The [Discovery Score](docs/scoring.md) combines recovery beyond chance with restraint on worlds that contain no recoverable signal.
 
-## The premise
+**Release status: `1.0.0rc4`.** This release candidate updates the runtime: corrected scoring, seeded stratified sampling, one replay-verified run format for both tracks, and a catalogue of literature-grounded reference methods. The world packs are still the `1.0.0rc3` downloads, now with published id lists: 2,465 of their 2,489 worlds pass the current solvability screen, and 24 are excluded. Use the certified lists (`--worlds <pack>-certified.txt`). Packs rebuilt on the corrected generator follow in a later release. No accepted benchmark results or hosted evaluation release are announced here. See [stability and limitations](STABILITY.md).
 
-> *Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found.*
+## Run offline
 
-## Quickstart
-
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). From a fresh checkout:
 
 ```bash
-git clone https://github.com/BradSegal/ONC-AGI && cd ONC-AGI
+git clone https://github.com/BradSegal/ONC-AGI
+cd ONC-AGI
 uv sync
-uv run onc-agi smoke                            # reference, baseline and cheater agents on the toy worlds, both modes
-uv run python examples/agents/pipeline_agent.py # a full-access agent in a dozen lines
+uv run onc-agi smoke
+uv run python examples/agents/pipeline_agent.py
 ```
 
-Without uv: `pip install .` then `onc-agi smoke`.
+The smoke test exercises both modes on 20 small, synthetic fixtures. It checks the oracle, baselines and shortcut agents and finishes with `smoke passed`. The pipeline example prints a scorecard. Neither command needs an API key, Docker or a benchmark download; fixture scores are software checks, not evidence of benchmark performance. Without uv, install the checkout with `pip install .` and run `onc-agi smoke`.
 
-The smoke command prints one scorecard per agent: the oracle at 1.00, the standard baselines in between, and every cheater at 0.
+## Use the benchmark
 
-## World sets
-
-Each set is one release download: a world store you can point any command at. Answer keys are included (public train).
-
-| Download | Worlds | Contents |
-|---|---|---|
-| `onc-agi-public-train-full-access-1.0.0rc3.tar.gz` | 995 | Full-access worlds over every mechanism, 20% with no signal |
-| `onc-agi-public-train-sequential-1.0.0rc3.tar.gz` | 996 | The same distribution in sequential-acquisition mode |
-| `onc-agi-public-train-expressive-full-access-1.0.0rc3.tar.gz` | 248 | Harder worlds: survival outcomes, nonlinear drivers, missing data, up to 400 features |
-| `onc-agi-public-train-expressive-sequential-1.0.0rc3.tar.gz` | 250 | The expressive set in sequential mode |
-
-Sources are mixed across TCGA-BRCA, SCAN-B, METABRIC, TCGA pan-cancer, MSK-IMPACT, NHANES and pooled TCGA-BRCA with SCAN-B. Every world composes up to three mechanisms from [`docs/roles.md`](docs/roles.md). Difficulty tiers 0–2 are balanced within each set.
-
-```bash
-gh release download v1.0.0rc3 -R BradSegal/ONC-AGI -p 'onc-agi-public-train-full-access-*'
-sha256sum -c --ignore-missing SHA256SUMS            # optional: the checksums are a release asset too
-mkdir -p worlds/full && tar -xzf onc-agi-public-train-full-access-1.0.0rc3.tar.gz -C worlds/full
-uv run onc-agi evaluate --agent univariate_bh --store worlds/full            # one baseline on every world
-uv run onc-agi play --agent llm --profile <name> --store worlds/full --n 120 --workers 16  # any OpenAI-compatible model (docs/agents-kit.md)
-```
-
-Each archive holds `public_train/<world>/` bundles (`card.json`, `pool.parquet`, `queues.json`, `answer_key.json`) and `manifests/` (each world's mechanism, source, mode and difficulty tier).
-
-## What's here
-
-| Path | Contents |
+| Task | Guide |
 |---|---|
-| [`docs/premise.md`](docs/premise.md) | The task card and the rules every agent should know |
-| [`docs/interface.md`](docs/interface.md) | Interface specification v1.0: objects, actions, episode semantics, errors, sessions, HTTP |
-| [`docs/scoring.md`](docs/scoring.md) | Scoring specification, with executable worked examples |
-| [`docs/roles.md`](docs/roles.md) | The catalogue of causal roles and mechanics, and their answer-key rules |
-| [`docs/harness-guide.md`](docs/harness-guide.md) | In-process agents, HTTP harnesses, LLM agents, the Inspect standard track |
-| [`docs/fixtures.md`](docs/fixtures.md) | The toy fixture worlds |
-| [`schemas/`](schemas) | JSON Schemas for every payload, and `openapi.json` |
-| [`examples/payloads/`](examples/payloads) | Real captured requests and responses, validated against the schemas |
-| [`examples/agents/`](examples/agents) | Template agents: pipeline, sequential policy, HTTP harness, LLM tool loop |
-| `src/onc_agi/` | The runtime: contract, engine, scorer, Agent kit, baselines, cheaters, HTTP server and client, conformance, Inspect task |
-| [`STABILITY.md`](STABILITY.md) | What is frozen, what is a preview, the change policy and known limitations |
+| Understand worlds and mechanisms | [Task](docs/premise.md) |
+| Build or run an agent | [Agents](docs/agents-kit.md) · [Runnable examples](examples/agents) |
+| Implement a client | [Interface](docs/interface.md) · [Schemas](schemas) · [Payloads](examples/payloads) |
+| Check how a submission earns credit | [Scoring](docs/scoring.md) |
+| Select worlds and compare results | [Evaluation](docs/evaluation-protocol.md) |
 
-## Two modes
+This repository contains the runtime, fixtures, schemas and agent examples. The world generator is maintained separately. [CONTRIBUTING.md](CONTRIBUTING.md) identifies which files are maintained here and how to report a problem.
 
-| | Full access (like ARC-AGI-1/2) | Sequential acquisition (like ARC-AGI-3) |
-|---|---|---|
-| The agent receives | The whole dataset | A budget, a price list and the actions `recruit`, `assay` and `submit` |
-| It is tested on | Inference under correlation, confounding and leaks | That, plus what to measure and when to stop |
-| Data cost | Fixed | Credit is scaled by efficiency against a reference cost |
-
-## The score
-
-```
-Discovery Score = Find × Restraint
-Find      = chance-normalised recovery of the planted drivers (top R of the list, correlated substitutes counted once)
-Restraint = P(empty list | no signal) − P(empty list | signal)
-```
-
-Listing a post-outcome feature anywhere zeroes the world. The oracle scores 1. Always answering, never answering, random lists and random abstention all score 0. See [`docs/scoring.md`](docs/scoring.md).
-
-## Feedback
-
-Interface feedback is open until the `1.0.0` freeze. Open an issue with the *Interface feedback* template. See [CONTRIBUTING.md](CONTRIBUTING.md).
+ONC-AGI is inspired by [ARC-AGI](https://arcprize.org/) and is not affiliated with the ARC Prize Foundation. Its claims concern planted mechanisms in benchmark worlds; it does not validate clinical biomarkers.
 
 ## Credits
 
@@ -101,7 +45,7 @@ Interface feedback is open until the `1.0.0` freeze. Open an issue with the *Int
   - [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/) and [HTTPX](https://www.python-httpx.org/);
   - [Hatchling](https://hatch.pypa.io/);
   - optional: [Inspect AI](https://inspect.aisi.org.uk/) for the standard track and [knockpy](https://github.com/amspector100/knockpy) for the knockoffs baseline;
-  - development: pytest, Hypothesis, black, Ruff, mypy and jsonschema.
+  - development: pytest, pytest-cov, Hypothesis, black, Ruff, mypy, pandas-stubs, jsonschema, Twine, check-wheel-contents and pip-audit.
 - **Data:** the cohorts behind the benchmark worlds are credited under [Data sources and credits](#data-sources-and-credits).
 
 ## Data sources and credits

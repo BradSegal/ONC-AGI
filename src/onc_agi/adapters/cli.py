@@ -1,4 +1,5 @@
-"""``onc-agi`` command line: smoke, evaluate, serve, replay, conformance, and the agents kit (play, worlds, explain)."""
+"""``onc-agi`` command line: smoke, evaluate, serve, replay, conformance, and the agents kit (play,
+standard, worlds, subset, explain)."""
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ from collections.abc import Sequence
 from datetime import timedelta
 from importlib import resources
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 if TYPE_CHECKING:
     import httpx
@@ -19,10 +20,13 @@ from onc_agi.adapters.agents import AGENT_NAMES, BASELINES, CHEATERS, AgentFacto
 from onc_agi.core.errors import ArenaError
 from onc_agi.core.ports import RecordingEvent, RunRecord
 from onc_agi.core.schema import Mode, Scorecard, Tier, TraceEvent, WorldCard
-from onc_agi.infra.bundles import FileWorldStore
+from onc_agi.infra.bundles import FileWorldStore, world_id_list
 from onc_agi.infra.recorder import TraceRecorder
-from onc_agi.services.kit import evaluate
-from onc_agi.services.replay import replay
+from onc_agi.infra.recordings import read_run
+from onc_agi.services import sampling
+from onc_agi.services.kit import check_world_ids, evaluate
+from onc_agi.services.replay import replay, verify_run
+from onc_agi.services.sampling import WorldProfile
 
 SMOKE_AGENTS = (
     "oracle",
@@ -78,10 +82,23 @@ def cmd_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sample(profiles: Sequence[WorldProfile], n: int, seed: int, what: str) -> tuple[str, ...]:
+    """A seeded stratified sample of ``n`` worlds; its mix by source, family and mode goes to stderr."""
+    sample = sampling.stratified_sample(profiles, n, seed)
+    print(f"{what}: {sample.summary()}", file=sys.stderr)
+    return sample.world_ids
+
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
     store = FileWorldStore(Path(args.store), Path(args.keys) if args.keys else None)
     tier = Tier(args.tier)
-    ids = store.world_ids(tier)[: args.n] if args.n else None
+    try:
+        ids = check_world_ids(store, tier, world_id_list(args.worlds)) if args.worlds else None
+        if args.n:
+            ids = _sample(sampling.world_profiles(store, tier), args.n, args.seed, "evaluate")
+    except (ValueError, ArenaError) as exc:
+        print(f"evaluate: {exc}", file=sys.stderr)
+        return 2
     recorder = TraceRecorder(Path(args.trace)) if args.trace else None
     card, _ = evaluate(make_agent(args.agent, store), store, tier, world_ids=ids, recorder=recorder)
     print(_row(card))
@@ -137,6 +154,28 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 def cmd_replay(args: argparse.Namespace) -> int:
     store = FileWorldStore(Path(args.store), Path(args.keys) if args.keys else None)
+    if args.record:
+        server = None
+        url, key = args.url, args.key or os.environ.get("ARENA_KEY")  # only an explicit --url
+        if url:
+            from onc_agi.adapters.client import ArenaClient
+            from onc_agi.adapters.swarm import server_copies
+
+            if not key:
+                print("replay: checking against a server needs its key (--key or ARENA_KEY)", file=sys.stderr)
+                return 2
+            run = read_run(Path(args.record))
+            sid = (
+                run.scorecard.scorecard_id
+                if run.scorecard
+                else run.recording.header.scorecard_id if run.recording.header else None
+            )
+            server = server_copies(ArenaClient(url, key), sid) if sid else None
+            if server is None:
+                print(f"{args.record}: NOT VERIFIED: the server's copies are unavailable", file=sys.stderr)
+                return 1
+        outcome = verify_and_explain(Path(args.record), store, title=None, explain=False, server=server)
+        return 0 if outcome in ("verified", "consistent") else 1
     events = TraceRecorder(Path(args.trace)).events()
     by_world: dict[str, list[TraceEvent]] = {}
     for event in events:
@@ -231,37 +270,73 @@ def _llm_agent(args: argparse.Namespace) -> tuple[AgentFactory, str, str, str]:
     )
 
 
-def _write_explanations(
-    directory: Path,
-    events: Sequence[RecordingEvent],
-    runs: Sequence[RunRecord],
+RunStatus = Literal["verified", "consistent", "unverified", "failed"]
+
+
+def verify_and_explain(
+    record: Path,
     store: FileWorldStore,
-    title: str,
-) -> bool:
+    *,
+    title: str | None,
+    explain: bool = True,
+    server: tuple[Sequence[TraceEvent], Scorecard] | None = None,
+) -> RunStatus:
+    """Verify a run directory by replay (:func:`verify_run`), then explain each world.
+
+    ``verified``: checked against the server's own trace and scorecard (``server``); ``consistent``:
+    the local files agree with each other and the world bundles, but no server copy was compared;
+    ``unverified``: nothing could be checked (no server trace, or no answer keys for the worlds);
+    ``failed``: a mismatch. Replay and explanations both need the worlds' answer keys in ``store``.
+    """
     from onc_agi.services.explain import explain_run, report_json, report_markdown
 
-    known = set(store.world_ids(Tier.PUBLIC_TRAIN))
-    if not runs or any(r.world_id not in known for r in runs):
-        return False  # played remotely on worlds this store does not hold
-    explanations = explain_run(events, runs, store)
-    (directory / "explanations.md").write_text(report_markdown(explanations, title=title))
-    (directory / "explanations.json").write_text(report_json(explanations))
-    return True
+    run = read_run(record)
+    header, runs = run.recording.header, run.recording.runs
+    ids = list(header.world_ids) if header is not None else [r.world_id for r in runs]
+    if run.trace is None:
+        print(f"{record}: NOT VERIFIED: the run has no server trace")
+        return "unverified"
+    try:
+        held = bool(ids) and all(store.answer_key(w) is not None for w in ids)
+    except ArenaError:
+        held = False
+    if not held:
+        print(f"{record}: NOT VERIFIED: the store lacks these worlds' answer keys")
+        return "unverified"
+    verification = verify_run(
+        run.trace,
+        store,
+        scorecard=run.scorecard,
+        header=header,
+        runs=runs,
+        events=run.recording.events,
+        server_trace=server[0] if server else None,
+        server_scorecard=server[1] if server else None,
+    )
+    print(f"{record}: {verification.summary()}")
+    if not verification.ok:
+        return "failed"
+    if explain and title is not None and all(store.card(w).tier is Tier.PUBLIC_TRAIN for w in ids):
+        explanations = explain_run(run.recording.events, runs, store)
+        (record / "explanations.md").write_text(report_markdown(explanations, title=title))
+        (record / "explanations.json").write_text(report_json(explanations))
+        print(f"explanations in {record / 'explanations.md'}")
+    return "verified" if verification.authority == "server" else "consistent"
 
 
 def cmd_play(args: argparse.Namespace) -> int:
     from onc_agi.adapters.agents.specs import AgentSpecError, resolve_agent
     from onc_agi.adapters.client import ArenaClient
     from onc_agi.adapters.profiles import ProfileError
-    from onc_agi.adapters.swarm import Arena, LocalArena, run_swarm
-    from onc_agi.infra.recordings import RECORDING_FILE, RecordingWriter, read_recording
+    from onc_agi.adapters.swarm import LocalArena, run_swarm, server_copies, server_trace
+    from onc_agi.infra.recordings import RECORDING_FILE, RecordingWriter, save_run
 
     url, key = _remote(args)
     if url and args.store:
         print("play: give --url (remote server) or --store (in-process), not both", file=sys.stderr)
         return 2
     tier, mode = Tier(args.tier), Mode(args.mode) if args.mode else None
-    world_ids = tuple(w.strip() for w in args.worlds.split(",") if w.strip()) if args.worlds else None
+    world_ids = world_id_list(args.worlds) if args.worlds else None
     tags = tuple(t.strip() for t in args.tags.split(",") if t.strip()) if args.tags else ()
     store = None if url else _local_store(args)
     model = harness = None
@@ -273,7 +348,7 @@ def cmd_play(args: argparse.Namespace) -> int:
     except (AgentSpecError, ProfileError, ValueError, ImportError) as exc:
         print(f"play: {exc}", file=sys.stderr)
         return 2
-    arena: Arena
+    arena: LocalArena | ArenaClient
     if url:
         if not key:
             print("play: playing a server needs a key (--key or ARENA_KEY)", file=sys.stderr)
@@ -288,6 +363,14 @@ def cmd_play(args: argparse.Namespace) -> int:
             print(f"play: {tier.value} worlds are drawn fresh; give --n", file=sys.stderr)
             return 2
         n = sum(1 for c in arena.worlds(tier) if mode is None or c.mode is mode)
+    elif n is not None and store is not None and tier is Tier.PUBLIC_TRAIN:
+        # in-process: draw here so the mix can be reported; a server draws the same way itself
+        profiles = [p for p in sampling.world_profiles(store, tier) if mode is None or p.mode == mode.value]
+        try:
+            world_ids = _sample(profiles, n, args.seed or 0, "play")
+        except ValueError as exc:
+            print(f"play: {exc}", file=sys.stderr)
+            return 2
     record = Path(args.record) if args.record else None
     try:
         recorder = RecordingWriter(record / RECORDING_FILE) if record else None
@@ -309,6 +392,7 @@ def cmd_play(args: argparse.Namespace) -> int:
             budget_usd=args.budget_usd,
             model=model,
             harness=harness,
+            seed=args.seed if world_ids is None else None,
         )
     except ArenaError as exc:
         print(f"play: the arena refused the scorecard: {exc}", file=sys.stderr)
@@ -332,24 +416,109 @@ def cmd_play(args: argparse.Namespace) -> int:
         )
     for wid, error in result.errors.items():
         print(f"  {wid}: {error}", file=sys.stderr)
+    status: RunStatus = "consistent"
     if record is not None:
-        (record / "scorecard.json").write_text(card.model_dump_json(indent=1))
-        if tier is Tier.PUBLIC_TRAIN:
-            data = read_recording(record)
-            explained = _write_explanations(
-                record,
-                data.events,
-                data.runs,
-                store or FileWorldStore(fixture_store()),
-                f"{name} on {card.scorecard_id}",
-            )
-            print(
-                f"recording in {record}"
-                + ("" if explained else " (explanations skipped: worlds not in the local store)")
-            )
+        save_run(record, card, server_trace(arena, card.scorecard_id))
+        print(f"recording, trace and scorecard in {record}")
+        status = verify_and_explain(
+            record,
+            store or FileWorldStore(fixture_store()),
+            title=f"{name} on {card.scorecard_id}",
+            server=server_copies(arena, card.scorecard_id),
+        )
     if args.json:
         Path(args.json).write_text(card.model_dump_json(indent=1))
-    return 1 if result.errors else 0
+    return 1 if result.errors or status == "failed" else 0
+
+
+def cmd_standard(args: argparse.Namespace) -> int:
+    """The standard track end to end: the Inspect task for one model, then close, record and verify."""
+    try:
+        from onc_agi.adapters.inspect_task import run_standard
+    except ImportError as exc:
+        print(f"standard: the Inspect harness needs the [inspect] extra ({exc})", file=sys.stderr)
+        return 2
+    from onc_agi.adapters.profiles import ProfileError, load_profile
+
+    url, key = _remote(args)
+    if url and args.store:
+        print("standard: give --url (remote server) or --store (in-process), not both", file=sys.stderr)
+        return 2
+    if bool(args.profile) == bool(args.model):
+        print(
+            "standard: give --profile NAME (a model profile) or --model (an Inspect model)", file=sys.stderr
+        )
+        return 2
+    task_args: dict[str, object] = {"tier": args.tier, "seed": args.seed}
+    if url:
+        if not key:
+            print("standard: playing a server needs a key (--key or ARENA_KEY)", file=sys.stderr)
+            return 2
+        os.environ["ARENA_KEY"] = key  # the task reads it from the environment, never from its arguments
+        task_args["url"] = url
+    else:
+        task_args["store_root"] = args.store or str(fixture_store())
+        if args.keys:
+            task_args["keys_dir"] = args.keys
+    if args.n is not None:
+        task_args["n_worlds"] = args.n
+    if args.worlds:
+        task_args["world_ids"] = args.worlds
+    if args.message_limit:
+        task_args["message_limit"] = args.message_limit
+    try:
+        if args.profile:
+            profile = load_profile(args.profile, args.set, Path(args.profiles) if args.profiles else None)
+            model, config, price = profile.inspect_model(), profile.inspect_config(), profile.price()
+            if profile.extra_headers:
+                print(
+                    f"standard: headers {sorted(profile.extra_headers)} are not sent on the standard track"
+                    " (Inspect would write their values into its log)",
+                    file=sys.stderr,
+                )
+            prices = {model: price} if price else None  # Inspect reports usage under the model string
+        else:
+            model, config, prices = args.model, {}, None
+        record = Path(args.record) if args.record else None
+        if record is not None and (record / "recording.jsonl").exists():
+            raise FileExistsError(
+                f"recording {record / 'recording.jsonl'} already exists; record each run to a new place"
+            )
+        result = run_standard(
+            mode=Mode(args.mode),
+            model=model,
+            model_config=config,
+            prices=prices,
+            record=record,
+            log_dir=Path(args.log_dir),
+            agent=args.agent,
+            max_samples=args.max_samples,
+            **task_args,
+        )
+    except (ProfileError, ValueError, FileExistsError, ArenaError, RuntimeError) as exc:
+        print(f"standard: {exc}", file=sys.stderr)
+        return 2
+    card = result.scorecard
+    print(_row(card))
+    print(f"{card.scorecard_id}: {card.n_worlds} worlds; Inspect log {result.log_path}")
+    status: RunStatus = "consistent"
+    if record is not None:
+        print(f"recording, trace and scorecard in {record}")
+        server = None
+        if url:  # an in-process arena ends with the run; a server keeps its own copies
+            from onc_agi.adapters.client import ArenaClient
+            from onc_agi.adapters.swarm import server_copies
+
+            server = server_copies(ArenaClient(url, os.environ["ARENA_KEY"]), card.scorecard_id)
+        status = verify_and_explain(
+            record,
+            _local_store(args) if not url else FileWorldStore(fixture_store()),
+            title=f"{card.agent} on {card.scorecard_id}",
+            server=server,
+        )
+    if args.json:
+        Path(args.json).write_text(card.model_dump_json(indent=1))
+    return 1 if status == "failed" else 0
 
 
 def _cards(args: argparse.Namespace, tier: Tier) -> list[WorldCard]:
@@ -364,18 +533,57 @@ def _cards(args: argparse.Namespace, tier: Tier) -> list[WorldCard]:
     return [store.card(w) for w in store.world_ids(tier)]
 
 
+def _profiles(args: argparse.Namespace, tier: Tier) -> list[tuple[WorldProfile, WorldCard]]:
+    """Profiles and cards of a tier's worlds; a server's listing shows cards only (source and family unknown)."""
+    if _remote(args)[0]:
+        return [(sampling.world_profile(c), c) for c in _cards(args, tier)]
+    store = _local_store(args)
+    return [(p, store.card(p.world_id)) for p in sampling.world_profiles(store, tier)]
+
+
 def cmd_worlds(args: argparse.Namespace) -> int:
     try:
-        cards = _cards(args, Tier.PUBLIC_TRAIN)
+        rows = _profiles(args, Tier.PUBLIC_TRAIN)
     except (ValueError, ArenaError) as exc:
         print(f"worlds: {exc}", file=sys.stderr)
         return 2
-    for c in cards:
+    print(f"{'world_id':32s} {'mode':12s} {'source':16s} {'family':18s} {'rows x features':>15s}  strata")
+    for p, c in rows:
+        size = f"{p.rows} x {p.features}"
         print(
-            f"{c.world_id:32s} {c.mode.value:12s} {c.n_pool:6d} patients {len(c.features):6d} features"
-            f"  strata {','.join(c.strata)}"
+            f"{p.world_id:32s} {p.mode:12s} {p.source:16s} {p.family:18s} {size:>15s}  {','.join(c.strata)}"
         )
-    print(f"{len(cards)} public-train worlds")
+    print(f"{len(rows)} public-train worlds")
+    return 0
+
+
+def cmd_subset(args: argparse.Namespace) -> int:
+    """Draw a seeded stratified subset across one or more stores and write it as a world-id list."""
+    tier, mode = Tier(args.tier), Mode(args.mode) if args.mode else None
+    roots = [Path(s) for s in args.store] or [fixture_store()]
+    profiles = [
+        p
+        for root in roots
+        for p in sampling.world_profiles(FileWorldStore(root), tier)
+        if mode is None or p.mode == mode.value
+    ]
+    try:
+        sample = sampling.stratified_sample(profiles, args.n, args.seed)
+    except ValueError as exc:
+        print(f"subset: {exc} (stores: {', '.join(map(str, roots))})", file=sys.stderr)
+        return 2
+    print(sample.table(), file=sys.stderr)
+    text = "".join(f"{w}\n" for w in sample.world_ids)
+    if not args.out:
+        print(text, end="")
+        return 0
+    out = Path(args.out)
+    if out.exists() and out.read_text() != text:
+        print(f"subset: {out} already lists other worlds; published id lists never change", file=sys.stderr)
+        return 2
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    print(f"wrote {len(sample.world_ids)} world ids to {out}", file=sys.stderr)
     return 0
 
 
@@ -424,8 +632,13 @@ def _add_play(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p.add_argument("--keys", help=argparse.SUPPRESS)
     p.add_argument("--tier", default="public_train", choices=[t.value for t in Tier])
     worlds = p.add_mutually_exclusive_group()
-    worlds.add_argument("--n", type=int, help="number of worlds (default: every listed world)")
-    worlds.add_argument("--worlds", help="comma-separated public-train world ids")
+    worlds.add_argument(
+        "--n", type=int, help="number of worlds, a stratified sample (default: every listed world)"
+    )
+    worlds.add_argument(
+        "--worlds", help="public-train world ids: comma-separated, or an id-list file (one per line)"
+    )
+    p.add_argument("--seed", type=int, help="seed of the --n public-train sample (default 0)")
     p.add_argument("--mode", choices=[m.value for m in Mode])
     p.add_argument("--workers", type=int, default=4, help="worlds played in parallel")
     p.add_argument("--tags", help="comma-separated scorecard tags")
@@ -433,6 +646,37 @@ def _add_play(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p.add_argument("--budget-usd", type=float, help="start no new world once reported cost exceeds this")
     p.add_argument("--json", help="write the scorecard JSON here")
     p.set_defaults(func=cmd_play)
+
+
+def _add_standard(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    p = sub.add_parser(
+        "standard",
+        help="play the standard track (the Inspect task) for one model, in-process or against a server",
+    )
+    model = p.add_mutually_exclusive_group()
+    model.add_argument("--profile", help="model profile (as for play --agent llm)")
+    model.add_argument("--model", help="an Inspect model string instead of a profile (e.g. openai/gpt-4o)")
+    p.add_argument("--profiles", help="profiles TOML (default ./profiles.toml, else the packaged example)")
+    p.add_argument("--set", action="append", default=[], metavar="K=V", help="override a profile parameter")
+    p.add_argument("--mode", required=True, choices=[m.value for m in Mode])
+    p.add_argument("--url", help="arena server (default $ARENA_URL); without it, play in-process")
+    p.add_argument("--key", help="API key for --url (default $ARENA_KEY)")
+    p.add_argument("--store", help="world store for in-process play (default: the bundled fixtures)")
+    p.add_argument("--keys", help=argparse.SUPPRESS)
+    p.add_argument("--tier", default="public_train", choices=[t.value for t in Tier])
+    worlds = p.add_mutually_exclusive_group()
+    worlds.add_argument("--n", type=int, help="number of worlds, a stratified sample (default: every world)")
+    worlds.add_argument("--worlds", help="world ids: comma-separated, or an id-list file (one per line)")
+    p.add_argument("--seed", type=int, help="seed of the --n public-train sample (default 0)")
+    p.add_argument("--agent", help="scorecard agent label (default: inspect-standard)")
+    p.add_argument(
+        "--message-limit", type=int, help="messages per world (task default: 60 full access, 80 sequential)"
+    )
+    p.add_argument("--max-samples", type=int, default=4, help="worlds played in parallel")
+    p.add_argument("--log-dir", default="logs", help="Inspect log directory (default ./logs)")
+    p.add_argument("--record", help="directory for the recording, trace, scorecard and explanations")
+    p.add_argument("--json", help="write the scorecard JSON here")
+    p.set_defaults(func=cmd_standard)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -448,7 +692,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--store", required=True)
     p.add_argument("--keys")
     p.add_argument("--tier", default="public_train", choices=[t.value for t in Tier])
-    p.add_argument("--n", type=int)
+    worlds = p.add_mutually_exclusive_group()
+    worlds.add_argument("--n", type=int, help="number of worlds, a seeded stratified sample (default: all)")
+    worlds.add_argument("--worlds", help="world ids: comma-separated, or an id-list file (one per line)")
+    p.add_argument("--seed", type=int, default=0, help="seed of the --n sample (default 0)")
     p.add_argument("--trace")
     p.add_argument("--json")
     p.set_defaults(func=cmd_evaluate)
@@ -477,10 +724,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--ttl-hours", type=float, default=24.0, help="auto-close open scorecards after this long (0: never)"
     )
     p.set_defaults(func=cmd_serve)
-    p = sub.add_parser("replay", help="verify a trace against its world bundles")
-    p.add_argument("--trace", required=True)
+    p = sub.add_parser("replay", help="verify a trace, or a recorded run, against its world bundles")
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument("--trace", help="a trace JSONL (arena evaluate --trace)")
+    source.add_argument(
+        "--record", help="a run directory (arena play/standard --record): trace, scorecard, recording"
+    )
     p.add_argument("--store", required=True)
     p.add_argument("--keys")
+    p.add_argument("--url", help="with --record: check against this server's own trace and scorecard")
+    p.add_argument("--key", help="API key for --url (default $ARENA_KEY)")
     p.set_defaults(func=cmd_replay)
     p = sub.add_parser("conformance", help="run the custom-harness conformance suite")
     p.add_argument("--store")
@@ -490,12 +743,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--archive", help="in-process scorecard archive (default: <ledger>.archive)")
     p.set_defaults(func=cmd_conformance)
     _add_play(sub)
-    p = sub.add_parser("worlds", help="list public-train worlds (ids, modes, sizes)")
+    _add_standard(sub)
+    p = sub.add_parser("worlds", help="list public-train worlds (ids, modes, sources, families, sizes)")
     p.add_argument("--url", help="arena server (default $ARENA_URL); without it, the local store")
     p.add_argument("--key", help="API key for --url (default $ARENA_KEY)")
     p.add_argument("--store", help="world store (default: the bundled fixtures)")
     p.add_argument("--keys", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_worlds)
+    p = sub.add_parser(
+        "subset", help="draw a seeded stratified world subset (source x family x mode) and write its id list"
+    )
+    p.add_argument(
+        "--store",
+        action="append",
+        default=[],
+        help="world store; repeat to draw across packs (default: fixtures)",
+    )
+    p.add_argument("--tier", default="public_train", choices=[t.value for t in Tier])
+    p.add_argument("--mode", choices=[m.value for m in Mode], help="draw from one mode only")
+    p.add_argument("--n", type=int, required=True, help="number of worlds")
+    p.add_argument("--seed", type=int, default=0, help="sample seed (default 0)")
+    p.add_argument(
+        "--out", help="write the id list here (default: stdout); an existing list is never changed"
+    )
+    p.set_defaults(func=cmd_subset)
     p = sub.add_parser("explain", help="explain each world's outcome from a recording or an Inspect log")
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument("--record", help="recording directory or recording.jsonl")

@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ONC-AGI: what the benchmark measures, one task at a time</title>
+    <title>ONC-AGI · Test scientific discovery</title>
     <meta
       name="description"
-      content="ONC-AGI tests whether an AI agent can do the analysis a careful biostatistician does on a cancer cohort: find the measurements that drive an outcome, not their correlates; avoid leaks; say nothing when nothing is there; and spend data wisely. Follow one real task from start to finish."
+      content="ONC-AGI gives an agent a cancer cohort with an outcome and asks which measurements drive it. Each world hides a planted cause, or none at all."
     />
     <meta name="theme-color" content="#0f1a2b" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -20,9 +20,10 @@
     <header class="masthead">
       <a class="masthead__mark" href="#top" aria-label="ONC-AGI, back to top">ONC-AGI</a>
       <nav class="masthead__nav" aria-label="Sections">
-        <a href="#task">The task</a>
-        <a href="#journey">One task, start to finish</a>
-        <a href="#measures">What it measures</a>
+        <a href="#task">Why it matters</a>
+        <a href="#try">Try one</a>
+        <a href="#journey">Follow one discovery</a>
+        <a href="#measures">What makes it hard</a>
         <a href="#run">Run your agent</a>
       </nav>
     </header>
@@ -31,35 +32,30 @@
       <!-- Opening: the reader's question, answered before any score -->
       <section class="opening" aria-labelledby="title">
         <div class="opening__text">
-          <h1 id="title">Can an agent find what drives a cancer outcome, and say nothing when nothing does?</h1>
-          <p class="lede">
-            ONC-AGI measures one analysis skill. Given a cohort of patients, their measurements and an outcome, can an agent name
-            the measurements that <em>drive</em> the outcome rather than ones that merely travel with it? It must also avoid
-            information that leaks from the outcome itself, recognise when there is nothing to find, and do all of this without buying
-            more data than the question needs.
-          </p>
+          <h1 id="title">Can an agent find the signal—and know when there is none?</h1>
+          <figure class="premise">
+            <figcaption>ONC-AGI, a benchmark for biomarker discovery, asks one thing:</figcaption>
+            <blockquote>
+              Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an
+              empty list if nothing can be found.
+            </blockquote>
+          </figure>
+          <p class="scene-tag" data-world-tag aria-live="polite"></p>
+          <p class="scene-key">Cubes: each patient's level of each candidate biomarker · Towers: how strongly each biomarker tracks the outcome</p>
         </div>
-        <figure class="opening__band">
-          <!--@band-static-->
-          <canvas class="field-canvas" data-field="band" aria-hidden="true"></canvas>
-          <figcaption class="caption">
-            Each point is one measurement and its evidence of association with the outcome. The red line is the bar a real cause
-            must clear once chance is accounted for.
-          </figcaption>
-        </figure>
+        <div class="opening__scene" data-scene-hero>
+          <picture>
+            <source media="(max-width: 900px)" srcset="./media/hero-square-intro.webp" />
+            <img class="film-poster" src="./media/hero-wide-intro.webp" alt="" fetchpriority="high" decoding="async" />
+          </picture>
+        </div>
       </section>
 
       <section class="why" id="task" aria-labelledby="why-title">
         <div class="why__col">
           <h2 id="why-title">Why this task</h2>
           <p>
-            Most proposed biomarkers never reach the clinic. A review of the biomarker pipeline describes a literature of
-            “almost ubiquitous significant results” in which “few of these discovered biomarkers are used in routine clinical
-            care”, and finds that discovery “suffers from poor methods and incomplete and selective reporting”<a class="cite" href="#ref-1">1</a>.
-            Promising cancer biomarkers have repeatedly failed validation as false discoveries<a class="cite" href="#ref-2">2</a>.
-          </p>
-          <p>
-            The traps behind those failures are familiar to any analyst:
+            Biomarker discovery produces many promising associations and few clinical tools. Poor methods, selective reporting and failed validation are recurring problems<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>. Four failures recur:
           </p>
           <ul>
             <li>a correlate mistaken for a cause;</li>
@@ -68,36 +64,56 @@
             <li>a confident claim where the data support none.</li>
           </ul>
           <p>
-            An agent that avoids these traps on a real cohort would be useful to any group doing biomarker analysis. ONC-AGI turns
-            each trap into a test you can score.
+            ONC-AGI plants known mechanisms in cohort data, turning each failure into a test with a checkable answer. An agent that passes does the work of a careful biostatistician: it finds the cause, not its correlates, and says nothing when nothing is there.
           </p>
         </div>
-        <aside class="why__task" aria-label="The task">
-          <figure class="premise">
-            <blockquote>
-              Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an
-              empty list if nothing can be found.
-            </blockquote>
-            <figcaption>The task every agent receives, word for word.</figcaption>
-          </figure>
-          <ol class="contents" aria-label="The journey">
-            <li><a href="#j-build">A world is built from real patients</a></li>
-            <li><a href="#j-certify">An oracle certifies what can be found</a></li>
-            <li><a href="#j-receive">The agent receives the world</a></li>
-            <li><a href="#j-act">The agent buys data and analyses it</a></li>
-            <li><a href="#j-score">The answer is scored</a></li>
-            <li><a href="#j-across">One world is an example; many make a score</a></li>
+      </section>
+
+      <!-- Try one: the reader plays a real training world -->
+      <section class="try" id="try" aria-labelledby="try-title" data-truth="@@try-truth@@" data-twin="@@try-twin@@">
+        <div class="try__copy">
+          <h2 id="try-title">Try one</h2>
+          <p>
+            A world from the benchmark's training set: @@try-n@@ synthetic patients and @@try-features@@ measurements. Each patient
+            costs $@@try-per-patient@@ with every assay. Buy patients, read the evidence, then name what drives the outcome, most
+            likely first, or nothing.
+          </p>
+          <ol class="try__steps">
+            <li>
+              <h3>Buy patients</h3>
+              <div class="try__buy" aria-label="Patients to buy"><!--@try-stages--></div>
+              <p class="try__spend" data-spend>$@@try-budget@@ to spend; the reference study costs $@@try-ref@@.</p>
+            </li>
+            <li>
+              <h3>List what drives the outcome</h3>
+              <p class="try__hint">Click the bars to add measurements, in order. Click again to remove one.</p>
+              <ol class="try__list" aria-live="polite"></ol>
+            </li>
+            <li class="try__actions">
+              <button type="button" class="action" data-submit>Submit list</button>
+              <button type="button" class="action action--quiet" data-submit-empty>Submit nothing</button>
+              <button type="button" class="action action--quiet" data-reset>Start again</button>
+            </li>
           </ol>
-        </aside>
+          <div class="try__result" hidden aria-live="polite"></div>
+        </div>
+        <figure class="try__chart">
+          <div class="try__plot" style="--line:@@try-line@@">
+            <span class="try__axis">Evidence, −log<sub>10</sub> p</span>
+            <div class="bars"><!--@try-bars--></div>
+            <div class="try__line" aria-hidden="true"><span>multiple-testing line</span></div>
+            <p class="try__empty">Buy patients to see the evidence.</p>
+          </div>
+          <figcaption class="caption">One bar per measurement, square-root scale. Hollow bars were measured after the outcome. Without JavaScript the evidence after 90 patients is shown.</figcaption>
+        </figure>
       </section>
 
       <!-- The journey: one real task, replayed -->
       <section class="journey" id="journey" aria-labelledby="journey-title">
         <div class="journey__head">
-          <h2 id="journey-title" class="journey__title">One task, start to finish</h2>
+          <h2 id="journey-title" class="journey__title">Follow one discovery</h2>
           <p class="journey__intro">
-            Below is one world from the public set, <code>@@j-world@@</code>, and one run of a simple agent on it, recorded
-            from the benchmark's own engine and scorer. The figure follows along as you read.
+            @@j-n@@ synthetic patients. @@j-features@@ measurements. A fixed budget.
           </p>
         </div>
         <div class="journey__stage" aria-label="Replay figure">
@@ -107,7 +123,6 @@
             <!--@pane-receive-->
             <!--@pane-act-->
             <!--@pane-score-->
-            <!--@pane-across-->
           </div>
           <div class="transport" data-transport='@@j-transport-data@@'>
             <ol class="transport__phases" aria-label="Where you are in the task">
@@ -116,7 +131,6 @@
               <li data-phase="2"><a href="#j-receive">Receive</a></li>
               <li data-phase="3"><a href="#j-act">Act</a></li>
               <li data-phase="4"><a href="#j-score">Score</a></li>
-              <li data-phase="5"><a href="#j-across">Many worlds</a></li>
             </ol>
             <div class="transport__meters">
               <span><b data-meter="patients">0</b> / @@j-n@@ patients</span>
@@ -128,58 +142,45 @@
         </div>
 
         <div class="journey__column">
-          <h3 id="j-build" class="phase">1 · A world is built from real patients</h3>
+          <h3 id="j-build" class="phase">1 · Build a world</h3>
           <article class="beat" data-pane="build" data-state="0" data-phase="0">
             <p>
-              A world starts from real rows. Benchmark worlds draw patients without replacement from public cancer cohorts
-              (TCGA-BRCA and SCAN-B), so the correlations between measurements are real: genes that move together still move
-              together. This world has @@j-n@@ patients and @@j-features@@ measurements of several kinds.
-            </p>
+            Benchmark worlds preserve the correlations in real cancer cohorts. This synthetic demonstration has @@j-n@@ patients and @@j-features@@ measurements.
+          </p>
           </article>
           <article class="beat" data-pane="build" data-state="1" data-phase="0">
             <p>
-              One mechanism is planted. Here a single measurement, <code>@@j-truth@@</code>, drives the outcome. A second
-              measurement, <code>@@j-twin@@</code>, is a near-duplicate of it. Correlated substitutes like this are common in real
-              data, and the data alone may not be able to tell them apart.
-            </p>
+            <code>@@j-truth@@</code> drives the outcome. Its near-duplicate, <code>@@j-twin@@</code>, carries almost the same information. The task accepts either.
+          </p>
           </article>
           <article class="beat" data-pane="build" data-state="2" data-phase="0">
             <p>
-              An outcome is drawn from that mechanism, through a calibrated generator, at a fixed outcome rate. Which patients
-              have the outcome now depends, noisily, on the planted measurement and on nothing else.
-            </p>
+            Generate an outcome from the planted mechanism. The signal is known; which patients experience the outcome remains noisy.
+          </p>
           </article>
           <article class="beat" data-pane="build" data-state="3" data-phase="0">
             <p>
-              Then the traps are added. Three measurements are recorded <em>after</em> the outcome, and in some worlds one of them
-              tracks it closely, as real follow-up data often does. Every name is replaced with a fake one, so knowing which genes
-              matter in the literature cannot help.
-            </p>
+            @@j-post@@ measurements are taken after the outcome. Such variables can leak the answer. Feature names are masked so the agent must work from the data.
+          </p>
           </article>
 
-          <h3 id="j-certify" class="phase">2 · An oracle certifies what can be found</h3>
+          <h3 id="j-certify" class="phase">2 · Check what can be found</h3>
           <article class="beat" data-pane="certify" data-state="0" data-phase="1">
             <p>
-              Before any agent plays, the world is replayed hundreds of times, with fresh patients and fresh outcomes each time,
-              while the truth stays fixed. The oracle knows what was planted and asks whether it would show up. On these data it
-              clears the bar reliably from about @@j-oracle-n80@@ patients. Its near-duplicate does too, and an unrelated
-              measurement almost never does.
-            </p>
+            Repeat the simulation to check whether the planted signal can be detected. Here the driver is detected reliably, in at least 80% of cohorts even at the lower end of its 95% interval, from about @@j-oracle-n80@@ patients; an unrelated measurement almost never is.
+          </p>
           </article>
           <article class="beat" data-pane="certify" data-state="1" data-phase="1">
             <p>
-              The bar is not a convention. It is the strongest association any measurement reaches by chance when there is no
-              signal, simulated on this world's own data (here |z| = @@j-oracle-thr@@). A planted term is certified
-              <strong>recoverable</strong> or <strong>neutral</strong>; anything in between is rebuilt. Because the data cannot
-              separate the cause from its twin, both are accepted answers.
-            </p>
+            The bar comes from worlds with no signal: the strength of association that 95% of them never reach. When the data cannot tell a measurement from the driver, it is accepted as equivalent.
+          </p>
           </article>
 
-          <h3 id="j-receive" class="phase">3 · The agent receives the world</h3>
+          <h3 id="j-receive" class="phase">3 · Give the agent the task</h3>
           <article class="beat" data-pane="receive" data-state="0" data-phase="2">
             <p>
-              The agent sees what an analyst would:
-            </p>
+            The agent receives:
+          </p>
             <ul>
               <li>how many patients exist;</li>
               <li>every measurement, with its kind and whether it was taken after the outcome;</li>
@@ -187,118 +188,76 @@
               <li>a budget.</li>
             </ul>
             <p>
-              It does not see the answer key, which never leaves the scorer. In this sequential mode, it sees no data until it pays
-              for it.
-            </p>
+            The interface withholds the answer. The agent buys data before analysing it.
+          </p>
           </article>
 
-          <h3 id="j-act" class="phase">4 · The agent buys data and analyses it</h3>
+          <h3 id="j-act" class="phase">4 · Acquire evidence</h3>
           <article class="beat" data-pane="act" data-state="0" data-phase="3">
             <p>
-              The agent here is deliberately simple. It recruits patients in batches, measures everything on them and tests each
-              measurement against the outcome, with the usual correction for testing many at once.
-            </p>
+            This baseline recruits patients in batches and tests each measurement, correcting for multiple comparisons. Only measurements taken before the outcome can enter its answer.
+          </p>
             <p>
-              After @@j-first-n@@ patients (@@j-first-spent@@ USD), one measurement already clears its line.
-            </p>
+            At @@j-first-n@@ patients and @@j-first-spent@@ simulated USD, one measurement crosses its threshold.
+          </p>
           </article>
           <article class="beat" data-pane="act" data-state="1" data-phase="3">
             <p>
-              It buys more. With twice the patients the evidence sharpens, and the near-duplicate clears the line as well. The
-              agent cannot know which of the two is the cause, and neither could a human analyst from these data alone.
-            </p>
+            At twice the sample size, the near-duplicate crosses too. More evidence supports the signal without separating the two measurements.
+          </p>
           </article>
           <article class="beat" data-pane="act" data-state="2" data-phase="3">
             <p>
-              With @@j-patients@@ patients its list is unchanged, so it stops and submits <code>[@@j-submission@@]</code>. It has
-              spent @@j-spent@@ USD of a @@j-budget@@ USD budget. Knowing when you know enough is part of the task.
-            </p>
+            At @@j-patients@@ patients, the list repeats. The baseline stops and submits <code>[@@j-submission@@]</code>, spending @@j-spent@@ of @@j-budget@@ simulated USD.
+          </p>
           </article>
 
-          <h3 id="j-score" class="phase">5 · The answer is scored</h3>
+          <h3 id="j-score" class="phase">5 · Score the answer</h3>
           <article class="beat" data-pane="score" data-state="0" data-phase="4">
             <p>
-              Scoring is deterministic code; no language model judges it. First, the two near-duplicates count as one answer, so
-              listing correlated copies cannot inflate a score. Only the first <em>R</em> answers count, where <em>R</em> is the
-              number of certified causes (here one).
-            </p>
+            The scorer counts equivalent measurements once, then keeps only the first <em>R</em>: the number of recoverable causes, one here.
+          </p>
           </article>
           <article class="beat" data-pane="score" data-state="1" data-phase="4">
             <p>
-              The answer matches the key, because either twin is accepted. It is then compared with what a random list of the same
-              kind would achieve, so lucky guessing scores zero on average.
-            </p>
+            Either twin matches the key. Credit is corrected for what a random list of the same kinds of measurement would recover.
+          </p>
           </article>
           <article class="beat" data-pane="score" data-state="2" data-phase="4">
             <p>
-              Two checks follow. Listing any post-outcome measurement would have scored this world zero. Spending is compared
-              with the oracle's reference study (@@j-ref@@ USD); this agent spent less, so its credit is not discounted.
-            </p>
+            A post-outcome measurement invalidates the answer. Acquisition cost is compared with the @@j-ref@@ USD reference study; this run costs less and keeps its full credit.
+          </p>
           </article>
           <article class="beat" data-pane="score" data-state="3" data-phase="4">
             <p>
-              The same scorer, run on other answers to the same world, shows what each rule is for. Equivalent answers earn credit.
-              A leak costs everything. Silence costs Restraint. Listing everything is luck, not discovery.
-            </p>
+            The same scorer, run on other answers: the near-duplicate alone earns full credit; a post-outcome measurement removes it; silence misses this signal; listing everything depends on a lucky order.
+          </p>
+            <p>
+            Across many worlds, a fifth with no signal at all, the headline is <strong>Discovery Score = Find × Restraint</strong>. Restraint rewards returning nothing when there is nothing, so always answering, never answering, guessing and padding all score zero.
+          </p>
           </article>
 
-          <h3 id="j-across" class="phase">6 · One world is an example; many make a score</h3>
-          <article class="beat" data-pane="across" data-state="0" data-phase="5">
-            <p>
-              The same agent played every public world, in both modes:
-            </p>
-            <ul>
-              <li>it solves single drivers, stand-ins, confounders and leaks;</li>
-              <li>it misses the interaction, where neither measurement matters alone;</li>
-              <li>it recovers only part of a module;</li>
-              <li>on worlds with no signal it correctly says nothing, but in sequential mode only after buying the whole cohort,
-                which costs efficiency.</li>
-            </ul>
-          </article>
-          <article class="beat" data-pane="across" data-state="1" data-phase="5">
-            <p>
-              The headline combines finding with knowing when to stop:
-              <strong>Discovery Score = Find × Restraint</strong>.
-            </p>
-            <ul>
-              <li><strong>Find</strong> is chance-corrected recovery on worlds with a cause.</li>
-              <li><strong>Restraint</strong> is how often the agent says nothing on worlds without one, minus how often it says
-                nothing when there was something to find.</li>
-            </ul>
-            <p>
-              For this agent that is @@j-find@@ × @@j-restraint@@ = @@j-ds@@ (95% interval @@j-ds-low@@ to @@j-ds-high@@).
-              Always answering, never answering, guessing and padding all score zero.
-            </p>
-          </article>
           <div class="journey__end" aria-hidden="true"></div>
         </div>
 
       </section>
 
+      <p class="figure-notes">
+        The walkthrough replays the synthetic <code>@@j-world@@</code> world with a recorded statistical baseline; prices are simulated.
+        Figures as editable SVG: <!--@figure-downloads-->
+      </p>
+
       <!-- What the benchmark measures -->
       <section class="measures" id="measures" aria-labelledby="measures-title">
-        <h2 id="measures-title">What it measures</h2>
+        <h2 id="measures-title">What makes it hard</h2>
         <p class="measures__intro">
-          Every world is one of a small set of published mechanisms. Each tests one part of an analyst's judgement, and each
-          defeats a specific shortcut. The generator is private, as in ARC; the rules are not.
+            Each mechanism is built so that a common shortcut fails. Six of them, shortcut against analysis:
+          </p>
+        <div class="hard-grid"><!--@failures--></div>
+        <p class="measures__more">
+          The benchmark also plants near-duplicates that count as one answer, hidden causes seen only through proxies, modules of
+          genes acting together, mediators and colliders, and sequential worlds where every patient and assay costs money.
         </p>
-        <table class="measures__table">
-          <thead>
-            <tr><th scope="col">Analyst skill</th><th scope="col">Mechanism</th><th scope="col">Shortcut that fails</th></tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">Find the driver</th><td>Generating: one to three measurements drive the outcome</td><td>—</td></tr>
-            <tr><th scope="row">Accept what the data cannot distinguish</th><td>Stand-in: a near-duplicate of the driver</td><td>Insisting on one exact measurement</td></tr>
-            <tr><th scope="row">Look across data types</th><td>Wrong data type: a copy-number change drives the outcome</td><td>Reading only gene expression</td></tr>
-            <tr><th scope="row">Separate cause from confounding</th><td>Observed confounder: a clinical subtype lifts many genes</td><td>Listing genes associated only through the subtype</td></tr>
-            <tr><th scope="row">Respect time</th><td>Leak: a post-outcome measurement tracks the outcome</td><td>Ranking by association without reading timing</td></tr>
-            <tr><th scope="row">Reason about the unmeasured</th><td>Hidden cause: an unmeasured driver with measured proxies</td><td>Claiming the proxy is the cause</td></tr>
-            <tr><th scope="row">Look for joint effects</th><td>Interaction, module, effect modifier</td><td>Marginal screening; picking only the strongest member</td></tr>
-            <tr><th scope="row">Respect causal structure</th><td>Mediator, collider, Simpson's-paradox mixture, batch shift</td><td>Trusting associations created by selection, pooling or batch</td></tr>
-            <tr><th scope="row">Know when there is nothing</th><td>No signal: a twin of a real world with every effect removed (20% of worlds)</td><td>Always naming something</td></tr>
-            <tr><th scope="row">Spend data wisely</th><td>Sequential mode: patients and assays cost money</td><td>Buying everything before thinking</td></tr>
-          </tbody>
-        </table>
         <div class="claims">
           <div>
             <h3>What a score means</h3>
@@ -306,7 +265,7 @@
               <li>The agent recovered planted mechanisms in real correlation structure, against an oracle certificate, more
                 often than chance.</li>
               <li>It said "nothing" when nothing was there, and paid for data in proportion to the question.</li>
-              <li>It did so without access to the answers: names are fake and the evaluation worlds are never reused.</li>
+              <li>The agent interface withholds the key. Public training answers remain available to developers.</li>
             </ul>
           </div>
         </div>
@@ -317,13 +276,7 @@
         <div class="run__copy">
           <h2 id="run-title">Run your agent</h2>
           <p>
-            The interface, the engine and the scorer are public. An agent receives a world card, chooses actions and submits a
-            list. It runs offline through the same engine that scored the run above.
-          </p>
-          <p>
-            The 1.0.0rc3 world sets, 2,489 public-train worlds, are superseded and remain downloadable for reference. Eight of
-            those worlds have answer keys that no solver can reach, and the release's first-pass results took the first worlds of
-            each download, so every scored world came from one cohort source, METABRIC.
+            Bring a method or an agent. Read the world card, choose actions, and submit an ordered list through the public engine.
           </p>
           <p class="run__needs">Needs Python 3.12 and <a href="https://docs.astral.sh/uv/">uv</a>. The smoke test takes about ten seconds.</p>
           <ul class="run__links">
@@ -341,7 +294,10 @@
 uv sync
 uv run onc-agi smoke</code></pre>
           </div>
-          <pre class="terminal" aria-label="Expected output"><code>@@smoke-output@@</code></pre>
+          <details class="terminal">
+            <summary><span>Expected output</span><code>@@smoke-last@@</code></summary>
+            <pre aria-label="Expected output"><code>@@smoke-output@@</code></pre>
+          </details>
         </div>
       </section>
     </main>

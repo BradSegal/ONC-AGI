@@ -1,39 +1,58 @@
-# The premise and task card
+# The task
 
-Every world poses the same question:
+A feature can predict an outcome because it drives that outcome, stands in for another measurement, reflects a confounder, or was measured after the event. ONC-AGI asks an agent to distinguish these cases in worlds where the generating mechanism is known.
 
-> *Here is a cohort with an outcome. Which measurements drive it? Return an ordered list, most likely first, or an empty list if nothing can be found.*
+Each benchmark world combines measurements derived from a real cohort with a generated outcome. Its answer key records the planted mechanism, which parts are recoverable, and which substitutes the data cannot distinguish. Public-train keys are included for development; agents receive the world card and revealed data, not the key.
 
-The question is simple and the difficulty lies in the worlds. A world is a cohort of patients with a binary outcome and a set of measurements. Hidden among the measurements is a planted mechanism, or no mechanism at all. The world's answer key records what was planted and how much of it can be recovered from the data the world provides.
+![Schematic cohort measurements linked to a separately generated outcome. Red identifies the selected mechanism; blue identifies the remaining measurements.](assets/cohort-and-outcome.png)
 
-## What an agent receives
+*Conceptual illustration, not patient data or benchmark results. The outcome is generated from selected measurements while the cohort supplies the measurement structure.*
 
-A **world card** (`WorldCard`). It lists:
-- the world's identifier, tier and mode;
-- the number of patients that can be revealed;
-- every feature, with its data type, its timing relative to the outcome and its assay price;
-- the recruitment strata, the price list and the budget;
-- the premise text itself.
+## Read the world, then submit a list
 
-The data then arrive in one of two ways:
+The **world card** lists feature identifiers, data types, measurement timing, patient strata, prices and budget. Binary worlds have a 0/1 outcome. Survival worlds also provide follow-up time; `outcome` records an observed event or censoring, and `horizon_days` states the follow-up horizon.
 
-| Mode | How data arrive | What is measured |
+| Mode | Available data | Agent decision |
 |---|---|---|
-| `full_access` | All patients and all features are revealed at reset. | Inference under correlation, confounding and leaks. |
-| `sequential` | Nothing is revealed at reset. The agent spends budget to `recruit` patients (revealing their outcome) and to `assay` features on them. | All of the above, plus what to measure and when to stop. |
+| `full_access` | All patients and measurements at reset | Which features to submit, or whether to abstain |
+| `sequential` | No patients at reset; `recruit` reveals outcomes and `assay` buys measurements | What to acquire, when to stop, and what to submit |
 
-## What an agent returns
+Submit feature identifiers in order, most likely driver first. An empty list means “nothing can be found”. Identifiers must occur on the card and may appear only once. The answer key's recovery depth is not disclosed to the agent.
 
-One `submit` action carrying an ordered `ranking` of feature identifiers, most likely driver first. An empty ranking means "nothing can be found". A ranking may not repeat a feature, and every identifier must exist in the world.
+## What earns credit
 
-## Rules every agent should know
+The scorer removes neutral features, keeps the first representative of each correlation cluster, and credits only the first R representatives, where R is the number of recoverable parts. Equivalent answers may earn credit; listing several members of one cluster does not earn several answers. A post-outcome feature anywhere in the submission makes Find and Strict zero for that world.
 
-1. **Post-outcome features are traps.** A feature whose timing is `post_outcome` was measured after the outcome occurred. Listing any of them, anywhere in the ranking, scores that world 0 and counts towards the Leak rate.
-2. **Order matters, and so does stopping.** Only the first R distinct answers count, where R is the number of recoverable slots in the world's answer key. R is not revealed. Padding the list with guesses does not help. Recovery is normalised against chance for the same list, so a random addition gains nothing in expectation, and every guess risks a leak.
-3. **Correlated substitutes count once.** Features that are near-duplicates of each other (|r| ≥ 0.8, complete linkage) form one cluster. Only the first listed member of a cluster is kept.
-4. **Equivalent answers earn credit.** If the data cannot tell a planted feature apart from a substitute, the answer key lists both in that slot's equivalence set, and either earns the credit.
-5. **Saying "nothing" is a skill.** About one world in five has no signal. Abstaining there earns Restraint, and abstaining on a world that has signal costs it. Random abstention scores zero.
-6. **Data cost counts in sequential mode.** Spending more than the reference cost (what a well-designed study would spend) scales the world's credit down.
-7. **There is no score feedback during evaluation.** Public-train worlds ship with answer keys for development. Evaluation tiers show only aggregate scorecards after the scorecard closes.
+![Worked example: a and b generate the outcome; a2 is equivalent to a. The lists a,b and a2,a,b earn Find 1. Adding the post-outcome feature L makes Find 0.](assets/what-earns-credit.png)
 
-[scoring.md](scoring.md) gives the exact scoring. [interface.md](interface.md) gives the exact payloads.
+*Selected relations from the executable `spec-w` example in the [scoring specification](scoring.md#the-worked-world). These are world-level Find values, not aggregate Discovery Scores. Other features in the example are omitted.*
+
+Across worlds, **Find** measures recovery beyond matched chance. **Restraint** rewards abstention on null worlds and penalises abstention on signal worlds; a list containing only neutral features also counts as abstention. The headline score is `Find × max(0, Restraint)`. Sequential acquisition also rewards efficiency relative to the answer key's reference cost.
+
+## Mechanisms
+
+Worlds vary the relation between measurements and outcome. The answer key records recoverable parts, accepted equivalents, neutral features and post-outcome rejects; the [scoring specification](scoring.md) defines how those records become credit.
+
+| Mechanism | What the agent must distinguish | Credited answer |
+|---|---|---|
+| Generating feature | A driver from its correlates | The driver or an accepted equivalent |
+| Stand-in | Measurements the data cannot separate | Either accepted equivalent; Strict follows exact recoverability |
+| Cause in another data type | A copy-number cause from downstream expression | The copy-number feature |
+| Observed confounder | A measured common cause from affected features | The clinical cause and any other recoverable driver |
+| Leak | Prediction using a post-outcome measurement | None for the leak; listing it makes Find and Strict zero |
+| Hidden cause | An unmeasured cause from its observed proxies | The proxies accepted in the key |
+| No signal | Association without recoverable signal | Abstention, including a neutral-only list without leaks |
+| Interaction | Joint effects missed by marginal screening | All required parts together |
+| Module | Several weighted contributors | The covered share of absolute weights |
+| Effect modifier | An effect confined to a subgroup | Driver and modifier together |
+| Mediator | A direct mediator from its upstream correlate | The mediator; upstream features only if accepted as equivalents |
+| Collider and selection | Association induced by selecting patients | Recoverable drivers; the selection trap earns no credit |
+| Contradictory mixture | Opposing subgroup associations | Recoverable causes; abstention if no parts are recoverable |
+| Cross-cohort shift | Cohort effects from biological drivers | Recoverable drivers; the cohort indicator is neutral |
+| Nonlinear | Curved or threshold effects | The generating feature or an accepted equivalent |
+| Composed world | Several mechanisms in one cohort | The combined recoverable groups |
+| Neutral group | A planted effect too weak to recover | No credit or depth penalty |
+
+Feature names are invented unless the card states otherwise. Difficulty varies with sample size, effect strength, correlation, missingness, censoring and mechanism composition. Construction aims to prevent metadata from revealing answers; assurance must check the actual released pack.
+
+Start with the [agents guide](agents-kit.md) to run a policy, or the [evaluation protocol](evaluation-protocol.md) to plan a comparison.

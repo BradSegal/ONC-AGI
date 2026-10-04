@@ -12,11 +12,13 @@ from onc_agi.core.schema import (
     Action,
     ActionEnvelope,
     ArenaErrorPayload,
+    ErrorCode,
     Mode,
     Observation,
     Reset,
     Scorecard,
     Tier,
+    TraceEvent,
     WorldCard,
 )
 from onc_agi.services.engine import EpisodeView
@@ -57,10 +59,21 @@ class ArenaClient:
         self.headers = {"X-Arena-Key": api_key}
 
     def _check(self, response: httpx.Response) -> httpx.Response:
-        if response.status_code >= 400:
+        """Raise the arena's typed error; a body that is not one (a proxy, a route an older server
+        lacks) becomes a typed error too, never a validation crash."""
+        if response.status_code < 400:
+            return response
+        try:
             payload = ArenaErrorPayload.model_validate(response.json())
-            raise ArenaError(payload.code, payload.message)
-        return response
+        except ValueError:  # not JSON, or JSON that is not an arena error
+            code = (
+                ErrorCode.ACTION_NOT_AVAILABLE
+                if response.status_code in (404, 405)
+                else ErrorCode.INVALID_PAYLOAD
+            )
+            detail = response.text[:200].strip() or response.reason_phrase
+            raise ArenaError(code, f"HTTP {response.status_code} (not an arena error): {detail}") from None
+        raise ArenaError(payload.code, payload.message)
 
     def open(
         self,
@@ -72,11 +85,17 @@ class ArenaClient:
         mode: Mode | None = None,
         world_ids: Sequence[str] | None = None,
         tags: Sequence[str] = (),
+        seed: int | None = None,
     ) -> tuple[str, list[WorldCard]]:
-        """Open a scorecard of ``n_worlds`` drawn worlds, or of named public-train ``world_ids``."""
+        """Open a scorecard of ``n_worlds`` drawn worlds, or of named public-train ``world_ids``.
+
+        Public-train draws are stratified samples seeded by ``seed`` (the server's default is 0).
+        """
         body: dict[str, object] = {"agent": agent, "tier": tier.value, "track": track, "tags": list(tags)}
         if n_worlds is not None:
             body["n_worlds"] = n_worlds
+        if seed is not None:
+            body["seed"] = seed
         if world_ids is not None:
             body["world_ids"] = list(world_ids)
         if mode is not None:
@@ -107,6 +126,11 @@ class ArenaClient:
         """The server's record of a closed scorecard (only its owner may read it)."""
         r = self.http.get(f"/v1/scorecards/{sid}", headers=self.headers)
         return Scorecard.model_validate(self._check(r).json())
+
+    def trace(self, sid: str) -> list[TraceEvent]:
+        """The server trace of a closed scorecard (its owner only), for replay verification."""
+        r = self.http.get(f"/v1/scorecards/{sid}/trace", headers=self.headers)
+        return [TraceEvent.model_validate(e) for e in self._check(r).json()["events"]]
 
     def play(self, agent: Agent, sid: str, card: WorldCard, *, max_steps: int = MAX_STEPS) -> Observation:
         obs = self.act(sid, card.world_id, Reset(request_id=f"{agent.name}-reset", world_id=card.world_id))

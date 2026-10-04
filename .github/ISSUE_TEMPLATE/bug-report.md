@@ -6,10 +6,10 @@ labels: bug
 
 **Command or code:**
 
-**World id(s):**
+**World IDs and store or pack version:**
 
 **Expected (with a doc reference):**
 
 **Actual (full error or output):**
 
-**Versions** (`uv run python -c "import onc_agi.core.schema as s; print(s.INTERFACE_VERSION)"`, OS, Python):
+**Versions** (commit from `git rev-parse HEAD`, package version, OS and Python):
