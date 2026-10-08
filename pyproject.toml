@@ -52,7 +52,7 @@ dev = [
   "mypy>=1.11",
   "pandas-stubs",
   "jsonschema>=4.23",
-  "twine>=6.2,<7",
+  "twine>=6.2,<8",
   "check-wheel-contents>=0.6,<1",
   "pip-audit>=2.9,<3",
 ]
